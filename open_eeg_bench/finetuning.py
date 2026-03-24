@@ -11,54 +11,49 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-import torch.nn as nn
-from peft import (
-    AdaLoraConfig as PeftAdaLoraConfig,
-    IA3Config as PeftIA3Config,
-    LoraConfig as PeftLoraConfig,
-    OFTConfig as PeftOFTConfig,
-    get_peft_model,
-)
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
+    import torch.nn as nn
     from open_eeg_bench.backbone import _BackboneBase
 
 log = logging.getLogger(__name__)
 
 
-class _PeftModelWrapper(nn.Module):
-    """Wraps a PEFT model so forward() calls the base model directly.
+def _get_peft_model_wrapper_class():
+    """Return the PeftModelWrapper class (lazy import of torch.nn)."""
+    import torch.nn as nn
 
-    PEFT's own forward expects HuggingFace-style models with a ``config``
-    attribute.  This wrapper bypasses that.
-    """
+    class _PeftModelWrapper(nn.Module):
+        """Wraps a PEFT model so forward() calls the base model directly."""
 
-    def __init__(self, peft_model):
-        super().__init__()
-        self.peft_model = peft_model
+        def __init__(self, peft_model):
+            super().__init__()
+            self.peft_model = peft_model
 
-    def forward(self, *args, **kwargs):
-        return self.peft_model.base_model.model(*args, **kwargs)
+        def forward(self, *args, **kwargs):
+            return self.peft_model.base_model.model(*args, **kwargs)
 
-    def __getattr__(self, name: str):
-        if name in ("peft_model", "training"):
-            return super().__getattr__(name)
-        try:
-            return getattr(self.peft_model, name)
-        except AttributeError:
-            return getattr(self.peft_model.base_model.model, name)
+        def __getattr__(self, name: str):
+            if name in ("peft_model", "training"):
+                return super().__getattr__(name)
+            try:
+                return getattr(self.peft_model, name)
+            except AttributeError:
+                return getattr(self.peft_model.base_model.model, name)
 
-    def train(self, mode: bool = True):
-        super().train(mode)
-        self.peft_model.train(mode)
-        return self
+        def train(self, mode: bool = True):
+            super().train(mode)
+            self.peft_model.train(mode)
+            return self
 
-    def eval(self):
-        return self.train(False)
+        def eval(self):
+            return self.train(False)
+
+    return _PeftModelWrapper
 
 
-def _param_stats(model: nn.Module) -> dict[str, Any]:
+def _param_stats(model) -> dict[str, Any]:
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
     return {
@@ -68,7 +63,7 @@ def _param_stats(model: nn.Module) -> dict[str, Any]:
     }
 
 
-def _resolve_modules_to_save(model: nn.Module, head_module_name: str) -> list[str] | None:
+def _resolve_modules_to_save(model, head_module_name: str) -> list[str] | None:
     """Auto-detect the head module to keep trainable under PEFT."""
     if hasattr(model, head_module_name):
         return [head_module_name]
@@ -76,6 +71,17 @@ def _resolve_modules_to_save(model: nn.Module, head_module_name: str) -> list[st
         if hasattr(model, candidate):
             return [candidate]
     return None
+
+
+def _apply_peft(model, peft_config):
+    """Apply PEFT config and wrap the model."""
+    from peft import get_peft_model
+
+    PeftModelWrapper = _get_peft_model_wrapper_class()
+    peft_model = get_peft_model(model, peft_config)
+    trainable, total = peft_model.get_nb_trainable_parameters()
+    wrapped = PeftModelWrapper(peft_model)
+    return wrapped, trainable, total
 
 
 # ============================================================================
@@ -93,25 +99,18 @@ class LoRA(BaseModel):
     dropout: float = 0.1
     bias: str = "all"
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
+        from peft import LoraConfig as PeftLoraConfig
+
         modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
         cfg = PeftLoraConfig(
-            r=self.r,
-            lora_alpha=self.alpha,
-            lora_dropout=self.dropout,
+            r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
             target_modules=backbone.peft_target_modules,
-            bias=self.bias,
-            modules_to_save=modules_to_save,
+            bias=self.bias, modules_to_save=modules_to_save,
         )
-        peft_model = get_peft_model(model, cfg)
-        trainable, total = peft_model.get_nb_trainable_parameters()
-        wrapped = _PeftModelWrapper(peft_model)
-        return wrapped, {
-            "method": "lora",
-            "total_params": total,
-            "trainable_params": trainable,
-            "trainable_pct": 100.0 * trainable / total,
-        }
+        wrapped, trainable, total = _apply_peft(model, cfg)
+        return wrapped, {"method": "lora", "total_params": total,
+                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
 
     def get_callbacks(self) -> list:
         return []
@@ -123,26 +122,21 @@ class IA3(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["ia3"] = "ia3"
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
+        from peft import IA3Config as PeftIA3Config
+
         modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
         ff_modules = backbone.peft_ff_modules or None
         target_modules = list(backbone.peft_target_modules)
         if ff_modules:
             target_modules = list(set(target_modules) | set(ff_modules))
         cfg = PeftIA3Config(
-            target_modules=target_modules,
-            feedforward_modules=ff_modules,
+            target_modules=target_modules, feedforward_modules=ff_modules,
             modules_to_save=modules_to_save,
         )
-        peft_model = get_peft_model(model, cfg)
-        trainable, total = peft_model.get_nb_trainable_parameters()
-        wrapped = _PeftModelWrapper(peft_model)
-        return wrapped, {
-            "method": "ia3",
-            "total_params": total,
-            "trainable_params": trainable,
-            "trainable_pct": 100.0 * trainable / total,
-        }
+        wrapped, trainable, total = _apply_peft(model, cfg)
+        return wrapped, {"method": "ia3", "total_params": total,
+                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
 
     def get_callbacks(self) -> list:
         return []
@@ -163,28 +157,18 @@ class AdaLoRA(BaseModel):
     tfinal: int = 1000
     deltaT: int = 10
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
+        from peft import AdaLoraConfig as PeftAdaLoraConfig
+
         cfg = PeftAdaLoraConfig(
-            r=self.r,
-            lora_alpha=self.alpha,
-            lora_dropout=self.dropout,
+            r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
             target_modules=backbone.peft_target_modules,
-            total_step=self.total_step,
-            target_r=self.target_r,
-            init_r=self.init_r,
-            tinit=self.tinit,
-            tfinal=self.tfinal,
-            deltaT=self.deltaT,
+            total_step=self.total_step, target_r=self.target_r, init_r=self.init_r,
+            tinit=self.tinit, tfinal=self.tfinal, deltaT=self.deltaT,
         )
-        peft_model = get_peft_model(model, cfg)
-        trainable, total = peft_model.get_nb_trainable_parameters()
-        wrapped = _PeftModelWrapper(peft_model)
-        return wrapped, {
-            "method": "adalora",
-            "total_params": total,
-            "trainable_params": trainable,
-            "trainable_pct": 100.0 * trainable / total,
-        }
+        wrapped, trainable, total = _apply_peft(model, cfg)
+        return wrapped, {"method": "adalora", "total_params": total,
+                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
 
     def get_callbacks(self) -> list:
         return []
@@ -200,26 +184,18 @@ class DoRA(BaseModel):
     dropout: float = 0.1
     bias: str = "none"
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
+        from peft import LoraConfig as PeftLoraConfig
+
         modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
         cfg = PeftLoraConfig(
-            r=self.r,
-            lora_alpha=self.alpha,
-            lora_dropout=self.dropout,
+            r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
             target_modules=backbone.peft_target_modules,
-            bias=self.bias,
-            modules_to_save=modules_to_save,
-            use_dora=True,
+            bias=self.bias, modules_to_save=modules_to_save, use_dora=True,
         )
-        peft_model = get_peft_model(model, cfg)
-        trainable, total = peft_model.get_nb_trainable_parameters()
-        wrapped = _PeftModelWrapper(peft_model)
-        return wrapped, {
-            "method": "dora",
-            "total_params": total,
-            "trainable_params": trainable,
-            "trainable_pct": 100.0 * trainable / total,
-        }
+        wrapped, trainable, total = _apply_peft(model, cfg)
+        return wrapped, {"method": "dora", "total_params": total,
+                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
 
     def get_callbacks(self) -> list:
         return []
@@ -235,25 +211,18 @@ class OFT(BaseModel):
     coft: bool = False
     block_share: bool = False
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
+        from peft import OFTConfig as PeftOFTConfig
+
         modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
         cfg = PeftOFTConfig(
-            oft_block_size=self.block_size,
-            target_modules=backbone.peft_target_modules,
-            module_dropout=self.module_dropout,
-            coft=self.coft,
-            block_share=self.block_share,
-            modules_to_save=modules_to_save,
+            oft_block_size=self.block_size, target_modules=backbone.peft_target_modules,
+            module_dropout=self.module_dropout, coft=self.coft,
+            block_share=self.block_share, modules_to_save=modules_to_save,
         )
-        peft_model = get_peft_model(model, cfg)
-        trainable, total = peft_model.get_nb_trainable_parameters()
-        wrapped = _PeftModelWrapper(peft_model)
-        return wrapped, {
-            "method": "oft",
-            "total_params": total,
-            "trainable_params": trainable,
-            "trainable_pct": 100.0 * trainable / total,
-        }
+        wrapped, trainable, total = _apply_peft(model, cfg)
+        return wrapped, {"method": "oft", "total_params": total,
+                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
 
     def get_callbacks(self) -> list:
         return []
@@ -265,7 +234,7 @@ class FullFinetune(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["full"] = "full"
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
         return model, {**_param_stats(model), "method": "full"}
 
     def get_callbacks(self) -> list:
@@ -282,7 +251,7 @@ class Frozen(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["frozen"] = "frozen"
 
-    def apply(self, model: nn.Module, backbone: _BackboneBase) -> tuple[nn.Module, dict]:
+    def apply(self, model, backbone):
         head_name = backbone.head_module_name
         for name, param in model.named_parameters():
             if head_name not in name:

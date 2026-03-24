@@ -12,13 +12,8 @@ for cached, optionally parallel (SLURM) execution.
 import logging
 from typing import Iterable, Iterator
 
-import numpy as np
-import pandas as pd
-import torch
-import torch.nn as nn
 from exca import ConfDict, MapInfra
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sklearn.metrics import balanced_accuracy_score
 
 from open_eeg_bench.backbone import Backbone, _BackboneBase
 from open_eeg_bench.dataset import Dataset
@@ -58,6 +53,10 @@ class Experiment(BaseModel):
         dict
             Results including test metrics and adapter stats.
         """
+        import numpy as np
+        import torch
+        import torch.nn as nn
+
         # 0. Seed
         torch.manual_seed(self.seed)
         np.random.seed(self.seed)
@@ -141,6 +140,7 @@ class Experiment(BaseModel):
         if test_set is not None:
             y_pred = clf.predict(test_set)
             y_true = np.array([test_set[i][1] for i in range(len(test_set))])
+            from sklearn.metrics import balanced_accuracy_score
             test_acc = balanced_accuracy_score(y_true, y_pred)
             results["test_balanced_accuracy"] = test_acc
             log.info("Test balanced accuracy: %.4f", test_acc)
@@ -149,8 +149,12 @@ class Experiment(BaseModel):
 
         return results
 
-    def _initialize_lazy_modules(self, model: nn.Module, info: dict) -> None:
+    @staticmethod
+    def _initialize_lazy_modules(model, info: dict) -> None:
         """Run a dummy forward pass to materialize LazyLinear modules."""
+        import torch
+        import torch.nn as nn
+
         has_lazy = any(
             isinstance(p, nn.parameter.UninitializedParameter)
             for p in model.parameters()
@@ -214,6 +218,7 @@ class Experiment(BaseModel):
 
         # LR scheduler
         if self.training.use_scheduler:
+            import torch
             cbs.append(
                 LRScheduler(
                     policy=torch.optim.lr_scheduler.CosineAnnealingLR,
@@ -294,7 +299,7 @@ class ExperimentHandler(BaseModel):
     )
     def run(
         self, experiments: Iterable[Experiment],
-    ) -> Iterator[pd.DataFrame]:  # noqa: F821
+    ) -> Iterator["pd.DataFrame"]:
         """Run experiments, yielding one DataFrame row per experiment.
 
         Cached experiments are skipped automatically by MapInfra.
@@ -318,6 +323,8 @@ class ExperimentHandler(BaseModel):
                 raw_results = list(pool.map(_run_experiment, experiments))
         else:
             raw_results = [exp.run() for exp in experiments]
+
+        import pandas as pd
 
         for raw in raw_results:
             flat = ConfDict(raw).flat()

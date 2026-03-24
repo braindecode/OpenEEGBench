@@ -8,15 +8,15 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import Annotated, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 
-import numpy as np
-import pandas as pd
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-from sklearn.model_selection import StratifiedGroupKFold, GroupKFold, train_test_split
-from torch.utils.data import Subset
 
-from braindecode.datasets import BaseConcatDataset
+if TYPE_CHECKING:
+    import numpy as np
+    import pandas as pd
+    from torch.utils.data import Subset
+    from braindecode.datasets import BaseConcatDataset
 
 log = logging.getLogger(__name__)
 

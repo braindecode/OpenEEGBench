@@ -7,10 +7,12 @@ downstream task.  ``OriginalHead`` keeps the model's built-in head.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Literal, Union
 
-import torch.nn as nn
 from pydantic import BaseModel, ConfigDict, Field
+
+if TYPE_CHECKING:
+    import torch.nn as nn
 
 log = logging.getLogger(__name__)
 
@@ -21,7 +23,9 @@ class LinearHead(BaseModel):
     model_config = ConfigDict(extra="forbid")
     kind: Literal["linear"] = "linear"
 
-    def apply(self, model: nn.Module, n_outputs: int, head_module_name: str) -> None:
+    def apply(self, model, n_outputs: int, head_module_name: str) -> None:
+        import torch.nn as nn
+
         new_head = nn.Sequential(nn.Flatten(1), nn.LazyLinear(n_outputs))
         setattr(model, head_module_name, new_head)
         log.info("Replaced '%s' with LinearHead (n_outputs=%d)", head_module_name, n_outputs)
@@ -35,7 +39,9 @@ class MLPHead(BaseModel):
     hidden_dim: int = 256
     dropout: float = 0.5
 
-    def apply(self, model: nn.Module, n_outputs: int, head_module_name: str) -> None:
+    def apply(self, model, n_outputs: int, head_module_name: str) -> None:
+        import torch.nn as nn
+
         new_head = nn.Sequential(
             nn.Flatten(1),
             nn.LazyLinear(self.hidden_dim),

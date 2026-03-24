@@ -8,11 +8,13 @@ source, and metadata needed by the finetuning and head modules
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-import torch
-import torch.nn as nn
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+if TYPE_CHECKING:
+    import torch
+    import torch.nn as nn
 
 from open_eeg_bench.normalization import (
     DivideByConstant,
@@ -62,7 +64,7 @@ class _BackboneBase(BaseModel):
         default=None, description="Direct URL for pretrained weights."
     )
 
-    def _model_class(self) -> type[nn.Module]:
+    def _model_class(self):
         raise NotImplementedError
 
     def _model_kwargs(self) -> dict[str, Any]:
@@ -76,7 +78,7 @@ class _BackboneBase(BaseModel):
         n_outputs: int,
         sfreq: float,
         chs_info: list | None = None,
-    ) -> nn.Module:
+    ):
         """Instantiate the backbone model."""
         cls = self._model_class()
         kwargs = self._model_kwargs()
@@ -89,10 +91,12 @@ class _BackboneBase(BaseModel):
         )
         return cls(**kwargs)
 
-    def load_pretrained(self, model: nn.Module) -> None:
+    def load_pretrained(self, model) -> None:
         """Load pretrained weights into the model."""
         if self.hub_repo is None and self.checkpoint_url is None:
             return
+
+        import torch
 
         if self.hub_repo is not None:
             state_dict = self._load_from_hub(self.hub_repo)
@@ -125,7 +129,8 @@ class _BackboneBase(BaseModel):
         )
 
     @staticmethod
-    def _load_from_hub(repo_id: str) -> dict[str, torch.Tensor]:
+    def _load_from_hub(repo_id: str) -> dict:
+        import torch
         from huggingface_hub import hf_hub_download
 
         try:
