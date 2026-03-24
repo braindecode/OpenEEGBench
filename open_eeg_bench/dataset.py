@@ -36,9 +36,10 @@ class RandomSplitter(BaseModel):
     stratify: bool = True
     seed: int = 42
 
-    def split(
-        self, dataset: BaseConcatDataset, metadata: pd.DataFrame
-    ) -> tuple[Subset, Subset, Subset | None]:
+    def split(self, dataset, metadata):
+        from sklearn.model_selection import train_test_split
+        from torch.utils.data import Subset
+
         indices = list(range(len(dataset)))
         stratify_col = metadata["target"].values if self.stratify and "target" in metadata.columns else None
 
@@ -69,10 +70,11 @@ class CrossSubjectSplitter(BaseModel):
     stratify: bool = True
     seed: int = 42
 
-    def split(
-        self, dataset: BaseConcatDataset, metadata: pd.DataFrame
-    ) -> tuple[Subset, Subset, Subset | None]:
+    def split(self, dataset, metadata):
+        import numpy as np
         from moabb.evaluations.splitters import CrossSubjectSplitter as _CSS
+        from sklearn.model_selection import StratifiedGroupKFold, GroupKFold, train_test_split
+        from torch.utils.data import Subset
 
         y = metadata["target"].values if "target" in metadata.columns else np.zeros(len(metadata))
         cv_class = StratifiedGroupKFold if self.stratify else GroupKFold
@@ -85,7 +87,6 @@ class CrossSubjectSplitter(BaseModel):
         train_idx, test_idx = splits[self.fold]
         test_ds = Subset(dataset, list(test_idx))
 
-        # Split train further into train/val
         strat = metadata.loc[train_idx, "target"].values if self.stratify and "target" in metadata.columns else None
         tr, va = train_test_split(list(train_idx), test_size=self.val_split, random_state=self.seed, stratify=strat)
         return Subset(dataset, tr), Subset(dataset, va), test_ds
@@ -101,9 +102,9 @@ class PredefinedSplitter(BaseModel):
     val_values: list[int | str]
     test_values: list[int | str] | None = None
 
-    def split(
-        self, dataset: BaseConcatDataset, metadata: pd.DataFrame
-    ) -> tuple[Subset, Subset, Subset | None]:
+    def split(self, dataset, metadata):
+        from torch.utils.data import Subset
+
         col = metadata[self.metadata_key]
 
         def _indices(values):
@@ -137,14 +138,14 @@ class Dataset(BaseModel):
     batch_size: int = 64
     num_workers: int = 0
 
-    def load(self) -> BaseConcatDataset:
+    def load(self):
         """Pull windowed dataset from HuggingFace Hub."""
+        from braindecode.datasets import BaseConcatDataset
+
         log.info("Loading dataset from HuggingFace Hub: %s", self.hf_id)
         return BaseConcatDataset.pull_from_hub(self.hf_id)
 
-    def setup(
-        self, normalization=None
-    ) -> tuple[BaseConcatDataset, Subset, Subset, Subset | None, dict]:
+    def setup(self, normalization=None):
         """Load dataset, apply normalization, split, and return sets.
 
         Returns

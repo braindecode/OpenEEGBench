@@ -11,7 +11,30 @@ Usage:
 
 import argparse
 import logging
+import os
 from pathlib import Path
+
+os.environ.setdefault(
+    "HF_HOME", "/expanse/projects/nemar/eeg_finetuning/pierre/hf_cache"
+)
+
+# Workaround: exca calls submitit.helpers.clean_env() which removes all
+# SLURM_* env vars before calling sbatch. On Expanse, SLURM_CONF is required
+# for sbatch to find its config. We monkey-patch clean_env to preserve it.
+import contextlib
+import submitit.helpers
+
+_original_clean_env = submitit.helpers.clean_env
+
+@contextlib.contextmanager
+def _clean_env_preserve_conf(*args, **kwargs):
+    slurm_conf = os.environ.get("SLURM_CONF")
+    with _original_clean_env(*args, **kwargs):
+        if slurm_conf is not None:
+            os.environ["SLURM_CONF"] = slurm_conf
+        yield
+
+submitit.helpers.clean_env = _clean_env_preserve_conf
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
@@ -25,7 +48,6 @@ from open_eeg_bench.finetuning import Frozen
 from open_eeg_bench.training import Training, EarlyStopping
 
 RESULTS_DIR = Path("/expanse/projects/nemar/eeg_finetuning/pierre/oeb_results")
-HF_CACHE = "/expanse/projects/nemar/eeg_finetuning/pierre/hf_cache"
 
 TRAINING = Training(
     max_epochs=30,
@@ -77,12 +99,15 @@ def make_all_experiments():
 
 
 def main():
-    import os
-    os.environ.setdefault("HF_HOME", HF_CACHE)
-
     parser = argparse.ArgumentParser()
     parser.add_argument("--test", action="store_true", help="Single test experiment")
     parser.add_argument("--all", action="store_true", help="All combinations")
+    parser.add_argument(
+        "--cluster",
+        default="local",
+        choices=["local", "slurm"],
+        help="Execution backend (default: local, for running inside a SLURM job)",
+    )
     args = parser.parse_args()
 
     if args.test:
@@ -92,21 +117,32 @@ def main():
     else:
         parser.error("Specify --test or --all")
 
-    logging.info("Launching %d experiments", len(experiments))
+    logging.info(
+        "Launching %d experiments (cluster=%s)", len(experiments), args.cluster
+    )
 
-    handler = ExperimentHandler(
-        parallelise_within_node=False,
-        infra=MapInfra(
-            folder=str(RESULTS_DIR),
-            cluster="slurm",
-            gpus_per_node=1,
+    infra_kwargs = dict(
+        folder=str(RESULTS_DIR),
+        cluster=args.cluster,
+        min_samples_per_job=1,
+    )
+    if args.cluster == "slurm":
+        infra_kwargs.update(
+            nodes=1,
             cpus_per_task=8,
-            mem_gb=32,
             timeout_min=60,
             slurm_partition="gpu-shared",
             slurm_account="csd403",
-            min_samples_per_job=1,
-        ),
+            slurm_additional_parameters={
+                "gpus": 1,
+                "exclude": "exp-1-57",
+                "qos": "gpu-shared-normal",
+            },
+        )
+
+    handler = ExperimentHandler(
+        parallelise_within_node=False,
+        infra=MapInfra(**infra_kwargs),
     )
 
     results = list(handler.run(experiments))
