@@ -211,13 +211,22 @@ See the [braindecode contributing guide](https://github.com/braindecode/braindec
 
 ### 📦 Available Datasets
 
-All datasets are pre-windowed and hosted on [HuggingFace Hub](https://huggingface.co/braindecode):
+All 12 datasets are pre-windowed and hosted on [HuggingFace Hub](https://huggingface.co/braindecode):
 
 | Dataset | HF ID | Classes | Task |
 |---------|-------|---------|------|
 | Arithmetic (Zyma 2019) | `braindecode/arithmetic_zyma2019` | 2 | Mental arithmetic vs. rest |
 | BCI Competition IV 2a | `braindecode/bcic2a` | 4 | Motor imagery |
+| BCI Competition 2020-3 | `braindecode/bcic2020-3` | 5 | Imagined speech |
 | PhysioNet MI | `braindecode/physionet` | 4 | Motor imagery |
+| CHB-MIT | `braindecode/chbmit` | 2 | Seizure detection |
+| FACED | `braindecode/faced` | 9 | Emotion recognition |
+| ISRUC-Sleep | `braindecode/isruc-sleep` | 5 | Sleep staging |
+| MDD (Mumtaz 2016) | `braindecode/mdd_mumtaz2016` | 2 | Depression detection |
+| SEED-V | `braindecode/seed-v` | 5 | Emotion recognition |
+| SEED-VIG | `braindecode/seed-vig` | regression | Vigilance estimation |
+| TUAB | `braindecode/tuab` | 2 | Abnormal EEG detection |
+| TUEV | `braindecode/tuev` | 6 | EEG event classification |
 
 ---
 
