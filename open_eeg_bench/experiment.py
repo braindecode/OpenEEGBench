@@ -4,15 +4,19 @@ An ``Experiment`` instance fully describes a single fine-tuning run:
 one backbone, one head, one fine-tuning strategy, one dataset split.
 Calling ``experiment.run()`` executes the full pipeline and returns
 the test metric.
+
+``ExperimentHandler`` wraps multiple experiments with exca ``MapInfra``
+for cached, optionally parallel (SLURM) execution.
 """
 
-from __future__ import annotations
-
 import logging
+from typing import Iterable, Iterator
 
 import numpy as np
+import pandas as pd
 import torch
 import torch.nn as nn
+from exca import ConfDict, MapInfra
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sklearn.metrics import balanced_accuracy_score
 
@@ -219,3 +223,102 @@ class Experiment(BaseModel):
             )
 
         return cbs
+
+
+def _experiment_uid(experiment: Experiment) -> str:
+    """Compute a deterministic UID for an Experiment config."""
+    return ConfDict.from_model(experiment, uid=True).to_uid()
+
+
+def _run_experiment(experiment: Experiment) -> dict:
+    """Run a single experiment. Standalone function for use with ThreadPoolExecutor."""
+    return experiment.run()
+
+
+class ExperimentHandler(BaseModel):
+    """Run multiple experiments with caching and optional SLURM parallelism.
+
+    Uses exca ``MapInfra`` to cache results per experiment and optionally
+    distribute runs across SLURM jobs.
+
+    When ``parallelise_within_node=True``, experiments assigned to the same
+    node are run concurrently via threads.  This is useful when individual
+    runs are light (small batch size) and do not saturate the GPU alone.
+    Use ``infra.min_samples_per_job`` to control how many experiments land
+    on the same node.
+
+    Examples
+    --------
+    Run locally, sequentially, with caching::
+
+        handler = ExperimentHandler(infra=MapInfra(folder="./results"))
+        results = handler.run([exp1, exp2, exp3])
+
+    Run locally, 4 experiments in parallel on the same GPU::
+
+        handler = ExperimentHandler(
+            parallelise_within_node=True,
+            infra=MapInfra(folder="./results", min_samples_per_job=4),
+        )
+        results = handler.run([exp1, exp2, exp3, exp4])
+
+    Run on SLURM, 4 experiments per node in parallel::
+
+        handler = ExperimentHandler(
+            parallelise_within_node=True,
+            infra=MapInfra(
+                folder="./results",
+                cluster="slurm",
+                gpus_per_node=1,
+                mem_gb=32,
+                timeout_min=60,
+                min_samples_per_job=4,
+            ),
+        )
+        results = handler.run(experiments)
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    infra: MapInfra = MapInfra()
+    parallelise_within_node: bool = Field(
+        default=False,
+        description=(
+            "If True, experiments assigned to the same node are run "
+            "concurrently via threads instead of sequentially."
+        ),
+    )
+
+    @infra.apply(
+        item_uid=_experiment_uid,
+        cache_type="PandasDataFrame",
+    )
+    def run(
+        self, experiments: Iterable[Experiment],
+    ) -> Iterator[pd.DataFrame]:  # noqa: F821
+        """Run experiments, yielding one DataFrame row per experiment.
+
+        Cached experiments are skipped automatically by MapInfra.
+
+        Parameters
+        ----------
+        experiments : Iterable[Experiment]
+            Experiments to run.
+
+        Yields
+        ------
+        pd.DataFrame
+            Single-row DataFrame with flattened results for each experiment.
+        """
+        experiments = list(experiments)
+
+        if self.parallelise_within_node and len(experiments) > 1:
+            from concurrent.futures import ThreadPoolExecutor
+
+            with ThreadPoolExecutor(max_workers=len(experiments)) as pool:
+                raw_results = list(pool.map(_run_experiment, experiments))
+        else:
+            raw_results = [exp.run() for exp in experiments]
+
+        for raw in raw_results:
+            flat = ConfDict(raw).flat()
+            yield pd.DataFrame([flat])

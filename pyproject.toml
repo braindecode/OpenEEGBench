@@ -12,6 +12,7 @@ license = {text = "MIT"}
 
 dependencies = [
     "braindecode @ git+https://github.com/braindecode/braindecode.git",
+    "exca>=0.5.10",
     "peft>=0.14.0",
     "pydantic>=2.0",
     "torch>=2.0",
