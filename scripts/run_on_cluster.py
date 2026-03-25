@@ -36,13 +36,56 @@ def _clean_env_preserve_conf(*args, **kwargs):
 
 submitit.helpers.clean_env = _clean_env_preserve_conf
 
+# Monkey-patch exca's SubmititMixin.executor() to add module load commands.
+# Expanse requires loading CUDA modules for GPU jobs.
+import exca.slurm as _exca_slurm
+
+_original_executor = _exca_slurm.SubmititMixin.executor
+
+def _patched_executor(self):
+    ex = _original_executor(self)
+    if ex is not None:
+        ex.update_parameters(
+            slurm_setup=[
+                "source ~/.bashrc",
+                "module load gpu",
+                "module load cuda12.2/toolkit/12.2.2",
+            ]
+        )
+    return ex
+
+_exca_slurm.SubmititMixin.executor = _patched_executor
+
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(name)s: %(message)s")
 
 from exca import MapInfra
 
 from open_eeg_bench.experiment import Experiment, ExperimentHandler
 from open_eeg_bench.default_configs.backbones import ALL_BACKBONES
-from open_eeg_bench.default_configs.datasets import ALL_DATASETS
+from open_eeg_bench.default_configs.datasets import (
+    arithmetic_zyma2019,
+    bcic2a,
+    bcic2020_3,
+    physionet,
+    chbmit,
+    faced,
+    isruc_sleep,
+    mdd_mumtaz2016,
+    seed_v,
+)
+
+# Datasets already downloaded on the cluster (skip seed-vig, tuab, tuev for now)
+AVAILABLE_DATASETS = [
+    arithmetic_zyma2019,
+    bcic2a,
+    bcic2020_3,
+    physionet,
+    chbmit,
+    faced,
+    isruc_sleep,
+    mdd_mumtaz2016,
+    seed_v,
+]
 from open_eeg_bench.default_configs.heads import linear_head
 from open_eeg_bench.finetuning import Frozen
 from open_eeg_bench.training import Training, EarlyStopping
@@ -78,7 +121,7 @@ def make_all_experiments():
     """All backbone × dataset × linear head combinations with frozen encoder."""
     experiments = []
     for backbone_fn in ALL_BACKBONES:
-        for dataset_fn in ALL_DATASETS:
+        for dataset_fn in AVAILABLE_DATASETS:
             try:
                 exp = Experiment(
                     backbone=backbone_fn(),
@@ -124,12 +167,14 @@ def main():
     infra_kwargs = dict(
         folder=str(RESULTS_DIR),
         cluster=args.cluster,
-        min_samples_per_job=1,
+        min_samples_per_job=6,
+        mode="force",  # recompute everything (clear corrupted cache from OOM jobs)
     )
     if args.cluster == "slurm":
         infra_kwargs.update(
             nodes=1,
             cpus_per_task=8,
+            mem_gb=64,
             timeout_min=60,
             slurm_partition="gpu-shared",
             slurm_account="csd403",

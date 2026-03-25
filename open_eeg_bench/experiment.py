@@ -314,6 +314,9 @@ class ExperimentHandler(BaseModel):
         pd.DataFrame
             Single-row DataFrame with flattened results for each experiment.
         """
+        import pandas as pd
+        import traceback
+
         experiments = list(experiments)
 
         if self.parallelise_within_node and len(experiments) > 1:
@@ -322,9 +325,13 @@ class ExperimentHandler(BaseModel):
             with ThreadPoolExecutor(max_workers=len(experiments)) as pool:
                 raw_results = list(pool.map(_run_experiment, experiments))
         else:
-            raw_results = [exp.run() for exp in experiments]
-
-        import pandas as pd
+            raw_results = []
+            for exp in experiments:
+                try:
+                    raw_results.append(exp.run())
+                except Exception as e:
+                    log.error("Experiment failed: %s\n%s", e, traceback.format_exc())
+                    raw_results.append({"error": str(e)})
 
         for raw in raw_results:
             flat = ConfDict(raw).flat()
