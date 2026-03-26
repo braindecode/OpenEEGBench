@@ -1,5 +1,5 @@
-import logging
 from itertools import product
+from typing import Iterable
 
 from open_eeg_bench.experiment import Experiment
 from open_eeg_bench.training import Training, EarlyStopping
@@ -22,10 +22,10 @@ def default_training():
 
 
 def make_all_experiments(
-    datasets=ALL_DATASETS.keys(),
-    heads=ALL_HEADS.keys(),
-    finetuning_strategies=ALL_FINETUNING.keys(),
-):
+    datasets: Iterable[str] = ALL_DATASETS.keys(),
+    heads: Iterable[str] = ALL_HEADS.keys(),
+    finetuning_strategies: Iterable[str] = ALL_FINETUNING.keys(),
+) -> list[Experiment]:
     """All  dataset x head x finetuning combinations.
     Before running, replace the PlaceholderBackbone with actual backbones in the loop below.
     """
