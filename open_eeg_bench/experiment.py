@@ -41,7 +41,7 @@ class Experiment(BaseModel):
         if isinstance(self.backbone, PlaceholderBackbone):
             raise ValueError(
                 "PlaceholderBackbone cannot be used to run an experiment. "
-                "Replace it with a concrete backbone (e.g. BIOTBackbone)."
+                "Replace it with a concrete backbone (e.g. PretrainedBackbone)."
             )
         return self
 

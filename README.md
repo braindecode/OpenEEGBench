@@ -106,37 +106,19 @@ Your model only needs to:
 3. Have a named module for the classification head (e.g. `self.final_layer`)
 
 ```python
-import torch.nn as nn
-from pydantic import Literal
-from open_eeg_bench.backbone import _BackboneBase
-
-class MyModelBackbone(_BackboneBase):
-    kind: Literal["my_model"] = "my_model"
-
-    # Your architecture hyperparameters
-    hidden_dim: int = 128
-
-    # Tell the framework about your model
-    peft_target_modules: list[str] = ["encoder.linear1", "encoder.linear2"]
-    peft_ff_modules: list[str] = ["encoder.linear2"]
-    head_module_name: str = "final_layer"
-    hub_repo: str | None = None  # or your HF repo with pretrained weights
-
-    def _model_class(self):
-        return MyModel  # your nn.Module class
-
-    def _model_kwargs(self):
-        return dict(hidden_dim=self.hidden_dim)
-```
-
-Then use it like any other backbone:
-
-```python
+from open_eeg_bench.backbone import PretrainedBackbone
 from open_eeg_bench.experiment import Experiment
 from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
 
 results = Experiment(
-    backbone=MyModelBackbone(),
+    backbone=PretrainedBackbone(
+        model_cls="my_package.MyModel",
+        model_kwargs=dict(hidden_dim=128),
+        checkpoint_url="https://my-model-checkpoint-url.pth",
+        peft_target_modules=["encoder.linear1", "encoder.linear2"],
+        peft_ff_modules=["encoder.linear2"],
+        head_module_name="final_layer",
+    ),
     dataset=arithmetic_zyma2019(),
 ).run()
 ```

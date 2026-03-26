@@ -16,7 +16,7 @@ SFREQ = 200.0
 
 
 def _build_biot():
-    backbone = biot(hub_repo=None, checkpoint_url=None)
+    backbone = biot()
     model = backbone.build(
         n_chans=N_CHANS, n_times=N_TIMES, n_outputs=N_OUTPUTS, sfreq=SFREQ,
     )

@@ -3,33 +3,32 @@
 import pytest
 
 from open_eeg_bench.default_configs.backbones import ALL_BACKBONES
-from open_eeg_bench.default_configs.finetuning import ALL_FINETUNING
-from open_eeg_bench.default_configs.heads import ALL_HEADS
+from open_eeg_bench.default_configs import ALL_FINETUNING, ALL_HEADS
 from open_eeg_bench.default_configs.datasets import ALL_DATASETS
 from open_eeg_bench.experiment import Experiment
 from open_eeg_bench.finetuning import Frozen, FullFinetune
 from open_eeg_bench.head import OriginalHead
 
 
-@pytest.mark.parametrize("factory", ALL_BACKBONES, ids=lambda f: f.__name__)
+@pytest.mark.parametrize("factory", ALL_BACKBONES.values(), ids=lambda f: f.__name__)
 def test_backbone_instantiation(factory):
     cfg = factory()
     assert cfg.peft_target_modules  # non-empty
 
 
-@pytest.mark.parametrize("factory", ALL_HEADS, ids=lambda f: f.__name__)
-def test_head_instantiation(factory):
-    cfg = factory()
+@pytest.mark.parametrize("cls", ALL_HEADS.values(), ids=lambda c: c.__name__)
+def test_head_instantiation(cls):
+    cfg = cls()
     assert cfg.kind
 
 
-@pytest.mark.parametrize("factory", ALL_FINETUNING, ids=lambda f: f.__name__)
-def test_finetuning_instantiation(factory):
-    cfg = factory()
+@pytest.mark.parametrize("cls", ALL_FINETUNING.values(), ids=lambda c: c.__name__)
+def test_finetuning_instantiation(cls):
+    cfg = cls()
     assert cfg.kind
 
 
-@pytest.mark.parametrize("factory", ALL_DATASETS, ids=lambda f: f.__name__)
+@pytest.mark.parametrize("factory", ALL_DATASETS.values(), ids=lambda f: f.__name__)
 def test_dataset_instantiation(factory):
     cfg = factory()
     assert cfg.hf_id

@@ -31,10 +31,10 @@ def chs_info():
     return _make_chs_info()
 
 
-@pytest.mark.parametrize("factory", ALL_BACKBONES, ids=lambda f: f.__name__)
+@pytest.mark.parametrize("factory", ALL_BACKBONES.values(), ids=lambda f: f.__name__)
 def test_backbone_build_and_forward(factory, chs_info):
     """Build each backbone and verify forward pass runs without error."""
-    backbone = factory(hub_repo=None, checkpoint_url=None)
+    backbone = factory()
 
     model = backbone.build(
         n_chans=N_CHANS,
@@ -52,10 +52,10 @@ def test_backbone_build_and_forward(factory, chs_info):
     assert out.shape[0] == 2, f"Batch dim mismatch: {out.shape}"
 
 
-@pytest.mark.parametrize("factory", ALL_BACKBONES, ids=lambda f: f.__name__)
+@pytest.mark.parametrize("factory", ALL_BACKBONES.values(), ids=lambda f: f.__name__)
 def test_backbone_has_head_module(factory, chs_info):
     """Verify each backbone has the declared head_module_name attribute."""
-    backbone = factory(hub_repo=None, checkpoint_url=None)
+    backbone = factory()
     model = backbone.build(
         n_chans=N_CHANS,
         n_times=N_TIMES,
