@@ -15,7 +15,7 @@ from typing import Iterable, Iterator
 from exca import ConfDict, MapInfra
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from open_eeg_bench.backbone import Backbone, _BackboneBase
+from open_eeg_bench.backbone import Backbone, PlaceholderBackbone, _BackboneBase
 from open_eeg_bench.dataset import Dataset
 from open_eeg_bench.finetuning import Finetuning, Frozen
 from open_eeg_bench.head import Head, LinearHead, OriginalHead
@@ -35,6 +35,15 @@ class Experiment(BaseModel):
     finetuning: Finetuning = Field(default_factory=Frozen)
     dataset: Dataset
     training: Training = Field(default_factory=Training)
+
+    @model_validator(mode="after")
+    def _check_not_placeholder(self):
+        if isinstance(self.backbone, PlaceholderBackbone):
+            raise ValueError(
+                "PlaceholderBackbone cannot be used to run an experiment. "
+                "Replace it with a concrete backbone (e.g. BIOTBackbone)."
+            )
+        return self
 
     @model_validator(mode="after")
     def _check_frozen_needs_new_head(self):

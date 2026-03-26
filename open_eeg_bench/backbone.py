@@ -423,6 +423,24 @@ class REVEBackbone(_BackboneBase):
         )
 
 
+class PlaceholderBackbone(_BackboneBase):
+    """Placeholder backbone for building experiment configs without choosing a model yet.
+
+    Cannot be used to actually run an experiment — the Experiment validator
+    will reject it.
+    """
+
+    kind: Literal["placeholder"] = "placeholder"
+    peft_target_modules: list[str] = []
+    head_module_name: str = "final_layer"
+
+    def _model_class(self):
+        raise NotImplementedError("PlaceholderBackbone cannot build a model.")
+
+    def _model_kwargs(self):
+        raise NotImplementedError("PlaceholderBackbone cannot build a model.")
+
+
 Backbone = Annotated[
     Union[
         BIOTBackbone,
@@ -431,6 +449,7 @@ Backbone = Annotated[
         CBraModBackbone,
         SignalJEPABackbone,
         REVEBackbone,
+        PlaceholderBackbone,
     ],
     Field(discriminator="kind"),
 ]
