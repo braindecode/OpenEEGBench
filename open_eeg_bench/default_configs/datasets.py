@@ -196,9 +196,9 @@ def seed_vig(**overrides) -> Dataset:
         n_classes=None,  # regression
         splitter=PredefinedSplitter(
             metadata_key="subject",
-            train_values=[1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21],
-            val_values=[4, 5],
-            test_values=[6, 7, 8, 9],
+            train_values=[f"{i:02d}" for i in [1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]],
+            val_values=[f"{i:02d}" for i in [4, 5]],
+            test_values=[f"{i:02d}" for i in [6, 7, 8, 9]],
         ),
         batch_size=32,
     )
