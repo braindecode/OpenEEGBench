@@ -121,6 +121,7 @@ def isruc_sleep(**overrides) -> Dataset:
         n_classes=5,
         splitter=PredefinedSplitter(
             metadata_key="subject",
+            # fmt: off
             train_values=[
                 "I011", "I013", "I014", "I017", "I019", "I020",
                 "I021", "I023", "I025", "I027", "I028", "I029", "I030",
@@ -130,6 +131,7 @@ def isruc_sleep(**overrides) -> Dataset:
                 "I061", "I062", "I063", "I064", "I065", "I066", "I067", "I068", "I069", "I070",
                 "I071", "I072", "I073", "I074", "I075", "I076", "I077", "I078", "I079", "I080",
             ],
+            # fmt: on
             val_values=[f"I{i:03d}" for i in range(81, 91)],
             test_values=[f"I{i:03d}" for i in range(91, 101)],
         ),
@@ -146,6 +148,7 @@ def mdd_mumtaz2016(**overrides) -> Dataset:
         n_classes=2,
         splitter=PredefinedSplitter(
             metadata_key="subject",
+            # fmt: off
             train_values=[
                 "HS1", "HS10", "HS11", "HS12", "HS13", "HS14", "HS15", "HS16",
                 "HS17", "HS18", "HS19", "HS2", "HS20", "HS21", "HS22",
@@ -161,6 +164,7 @@ def mdd_mumtaz2016(**overrides) -> Dataset:
                 "MDDS31", "MDDS32", "MDDS33", "MDDS34", "MDDS4", "MDDS5",
                 "MDDS6", "MDDS7", "MDDS8", "MDDS9",
             ],
+            # fmt: on
         ),
         batch_size=32,
     )
@@ -234,17 +238,17 @@ def tuev(**overrides) -> Dataset:
     return Dataset(**defaults)
 
 
-ALL_DATASETS = [
-    arithmetic_zyma2019,
-    bcic2a,
-    bcic2020_3,
-    physionet,
-    chbmit,
-    faced,
-    isruc_sleep,
-    mdd_mumtaz2016,
-    seed_v,
-    seed_vig,
-    tuab,
-    tuev,
-]
+ALL_DATASETS = {
+    "arithmetic_zyma2019": arithmetic_zyma2019,
+    "bcic2a": bcic2a,
+    "bcic2020_3": bcic2020_3,
+    "physionet": physionet,
+    "chbmit": chbmit,
+    "faced": faced,
+    "isruc_sleep": isruc_sleep,
+    "mdd_mumtaz2016": mdd_mumtaz2016,
+    "seed_v": seed_v,
+    "seed_vig": seed_vig,
+    "tuab": tuab,
+    "tuev": tuev,
+}

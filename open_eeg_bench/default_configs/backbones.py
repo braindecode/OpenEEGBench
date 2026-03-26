@@ -34,4 +34,11 @@ def reve(**overrides) -> REVEBackbone:
     return REVEBackbone(**overrides)
 
 
-ALL_BACKBONES = [biot, labram, bendr, cbramod, signal_jepa, reve]
+ALL_BACKBONES = {
+    "biot": biot,
+    "labram": labram,
+    "bendr": bendr,
+    "cbramod": cbramod,
+    "signal_jepa": signal_jepa,
+    "reve": reve,
+}
