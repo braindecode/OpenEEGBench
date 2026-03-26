@@ -108,7 +108,12 @@ class Experiment(BaseModel):
         if isinstance(finetuning, AdaLoRA) and finetuning.total_step is None:
             batch_size = self.training.batch_size or self.dataset.batch_size
             total_step = max(1, len(train_set) // batch_size) * self.training.max_epochs
-            finetuning = finetuning.model_copy(update={"total_step": total_step})
+            updates = {"total_step": total_step}
+            # Ensure tinit + tfinal < total_step for the budgeting phase
+            if finetuning.tinit + finetuning.tfinal >= total_step:
+                updates["tinit"] = total_step // 5
+                updates["tfinal"] = total_step // 2
+            finetuning = finetuning.model_copy(update=updates)
             log.info("AdaLoRA: auto-computed total_step=%d", total_step)
         model, adapter_stats = finetuning.apply(model, backbone_obj)
         log.info(
