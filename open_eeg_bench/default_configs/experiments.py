@@ -25,17 +25,18 @@ def make_all_experiments(
     datasets: Iterable[str] = ALL_DATASETS.keys(),
     heads: Iterable[str] = ALL_HEADS.keys(),
     finetuning_strategies: Iterable[str] = ALL_FINETUNING.keys(),
+    seeds: Iterable[int] = (1, 2, 3),
 ) -> list[Experiment]:
-    """All  dataset x head x finetuning combinations.
+    """All  dataset x head x finetuning x seed combinations.
     Before running, replace the PlaceholderBackbone with actual backbones in the loop below.
     """
     experiments = []
-    for head_name, finetuning_name, dataset_name in product(
-        heads, finetuning_strategies, datasets
+    for seed, head_name, finetuning_name, dataset_name in product(
+        seeds, heads, finetuning_strategies, datasets
     ):
         exp = Experiment.model_construct(
             training=default_training(),
-            head=ALL_HEADS[head_name](),
+            head=ALL_HEADS[head_name](seed=seed),
             finetuning=ALL_FINETUNING[finetuning_name](),
             dataset=ALL_DATASETS[dataset_name](),
             # Placeholder must be replaced by an actual backbone
