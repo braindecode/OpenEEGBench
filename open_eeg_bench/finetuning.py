@@ -73,6 +73,32 @@ def _resolve_modules_to_save(model, head_module_name: str) -> list[str] | None:
     return None
 
 
+def _filter_linear_targets(model, target_modules: list[str]) -> list[str]:
+    """Keep only target_modules that resolve to Linear/Conv layers in the model.
+
+    Some adapters (IA3, OFT) only support Linear/Conv, not MultiheadAttention.
+    """
+    import torch.nn as nn
+
+    supported = (nn.Linear, nn.Conv1d, nn.Conv2d)
+    valid = set()
+    for name, module in model.named_modules():
+        if not isinstance(module, supported):
+            continue
+        for target in target_modules:
+            if name == target or name.endswith("." + target):
+                valid.add(target)
+    if not valid:
+        return target_modules  # fallback: let PEFT raise the original error
+    filtered_out = set(target_modules) - valid
+    if filtered_out:
+        log.info(
+            "Filtered out unsupported target modules: %s (keeping: %s)",
+            sorted(filtered_out), sorted(valid),
+        )
+    return sorted(valid)
+
+
 def _apply_peft(model, peft_config):
     """Apply PEFT config and wrap the model."""
     from peft import get_peft_model
@@ -130,8 +156,11 @@ class IA3(BaseModel):
         target_modules = list(backbone.peft_target_modules)
         if ff_modules:
             target_modules = list(set(target_modules) | set(ff_modules))
+        target_modules = _filter_linear_targets(model, target_modules)
+        if ff_modules:
+            ff_modules = [m for m in ff_modules if m in target_modules]
         cfg = PeftIA3Config(
-            target_modules=target_modules, feedforward_modules=ff_modules,
+            target_modules=target_modules, feedforward_modules=ff_modules or None,
             modules_to_save=modules_to_save,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
@@ -215,8 +244,9 @@ class OFT(BaseModel):
         from peft import OFTConfig as PeftOFTConfig
 
         modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
+        target_modules = _filter_linear_targets(model, list(backbone.peft_target_modules))
         cfg = PeftOFTConfig(
-            oft_block_size=self.block_size, target_modules=backbone.peft_target_modules,
+            oft_block_size=self.block_size, target_modules=target_modules,
             module_dropout=self.module_dropout, coft=self.coft,
             block_share=self.block_share, modules_to_save=modules_to_save,
         )
