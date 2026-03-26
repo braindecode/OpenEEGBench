@@ -17,7 +17,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from open_eeg_bench.backbone import Backbone, PlaceholderBackbone, _BackboneBase
 from open_eeg_bench.dataset import Dataset
-from open_eeg_bench.finetuning import Finetuning, Frozen
+from open_eeg_bench.finetuning import AdaLoRA, Finetuning, Frozen
 from open_eeg_bench.head import Head, LinearHead, OriginalHead
 from open_eeg_bench.training import Training
 
@@ -104,7 +104,13 @@ class Experiment(BaseModel):
         self._initialize_lazy_modules(model, info)
 
         # 6. Apply finetuning
-        model, adapter_stats = self.finetuning.apply(model, backbone_obj)
+        finetuning = self.finetuning
+        if isinstance(finetuning, AdaLoRA) and finetuning.total_step is None:
+            batch_size = self.training.batch_size or self.dataset.batch_size
+            total_step = max(1, len(train_set) // batch_size) * self.training.max_epochs
+            finetuning = finetuning.model_copy(update={"total_step": total_step})
+            log.info("AdaLoRA: auto-computed total_step=%d", total_step)
+        model, adapter_stats = finetuning.apply(model, backbone_obj)
         log.info(
             "Finetuning: %s — %s/%s params (%.1f%%)",
             adapter_stats["method"],
