@@ -58,9 +58,9 @@ def bcic2020_3(**overrides) -> Dataset:
         n_classes=5,
         splitter=PredefinedSplitter(
             metadata_key="run",
-            train_values=[0],
-            val_values=[1],
-            test_values=[2],
+            train_values=["00"],
+            val_values=["01"],
+            test_values=["02"],
         ),
         batch_size=32,
     )
@@ -109,9 +109,9 @@ def faced(**overrides) -> Dataset:
         n_classes=9,
         splitter=PredefinedSplitter(
             metadata_key="subject",
-            train_values=list(range(0, 80)),
-            val_values=list(range(80, 100)),
-            test_values=list(range(100, 123)),
+            train_values=[f"{i:03d}" for i in range(0, 80)],
+            val_values=[f"{i:03d}" for i in range(80, 100)],
+            test_values=[f"{i:03d}" for i in range(100, 123)],
         ),
         batch_size=32,
     )
@@ -180,9 +180,9 @@ def seed_v(**overrides) -> Dataset:
         n_classes=5,
         splitter=PredefinedSplitter(
             metadata_key="session",
-            train_values=[1],
-            val_values=[2],
-            test_values=[3],
+            train_values=["01"],
+            val_values=["02"],
+            test_values=["03"],
         ),
         batch_size=32,
     )
