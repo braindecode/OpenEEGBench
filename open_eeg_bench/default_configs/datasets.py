@@ -9,12 +9,7 @@ Note: Subject/session IDs may be strings or ints depending on the dataset.
 The values here must match the metadata column in the HF dataset exactly.
 """
 
-from open_eeg_bench.dataset import (
-    CrossSubjectSplitter,
-    Dataset,
-    PredefinedSplitter,
-    RandomSplitter,
-)
+from open_eeg_bench.dataset import Dataset, PredefinedSplitter
 
 
 def arithmetic_zyma2019(**overrides) -> Dataset:
