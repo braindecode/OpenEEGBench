@@ -15,7 +15,7 @@ Open EEG Bench is a plug-and-play framework for evaluating EEG foundation models
 ## ✨ Features
 
 - 🔌 **Bring your own model** — Wrap any PyTorch EEG model as a backbone and benchmark it instantly
-- 🧩 **Combinatorial design** — Mix and match **Backbone × Head × Finetuning Strategy × Dataset** freely
+- 🧩 **Combinatorial design** — Mix and match **Backbone x Head x Finetuning Strategy x Dataset** freely
 - 📦 **Zero preprocessing** — Datasets are pre-windowed and hosted on [HuggingFace Hub](https://huggingface.co/braindecode)
 - ⚡ **7 PEFT methods** — LoRA, IA3, AdaLoRA, DoRA, OFT, full fine-tuning, and frozen linear probing
 - 🎯 **One config = one run** — A single `Experiment` object fully describes and executes a training run

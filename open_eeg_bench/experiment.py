@@ -25,7 +25,7 @@ log = logging.getLogger(__name__)
 
 
 class Experiment(BaseModel):
-    """One fine-tuning experiment = backbone × head × finetuning × dataset."""
+    """One fine-tuning experiment = backbone x head x finetuning x dataset."""
 
     model_config = ConfigDict(extra="forbid")
 

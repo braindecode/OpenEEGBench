@@ -118,7 +118,7 @@ def make_test_experiments():
 
 
 def make_all_experiments():
-    """All backbone × dataset × linear head combinations with frozen encoder."""
+    """All backbone x dataset x linear head combinations with frozen encoder."""
     experiments = []
     for backbone_fn in ALL_BACKBONES:
         for dataset_fn in AVAILABLE_DATASETS:
@@ -133,7 +133,7 @@ def make_all_experiments():
                 experiments.append(exp)
             except Exception as e:
                 logging.warning(
-                    "Skipping %s × %s: %s",
+                    "Skipping %s x %s: %s",
                     backbone_fn.__name__,
                     dataset_fn.__name__,
                     e,

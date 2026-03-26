@@ -4,7 +4,7 @@ Each EEG foundation model was pretrained with a specific normalization.
 These config classes reproduce that normalization so fine-tuning data
 matches the pretraining distribution.
 
-All normalizations operate on a single window (channels × time) as a
+All normalizations operate on a single window (channels x time) as a
 numpy array and are applied as a transform after windowing.
 """
 
