@@ -217,9 +217,11 @@ class DoRA(BaseModel):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
+        # DoRA does not support MultiheadAttention; filter to Linear/Conv only
+        target_modules = _filter_linear_targets(model, list(backbone.peft_target_modules))
         cfg = PeftLoraConfig(
             r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
-            target_modules=backbone.peft_target_modules,
+            target_modules=target_modules,
             bias=self.bias, modules_to_save=modules_to_save, use_dora=True,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
