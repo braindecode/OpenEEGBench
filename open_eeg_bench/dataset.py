@@ -99,8 +99,8 @@ class PredefinedSplitter(BaseModel):
     kind: Literal["predefined"] = "predefined"
     metadata_key: str
     train_values: list[int | str]
-    val_values: list[int | str]
-    test_values: list[int | str] | None = None
+    val_values: list[int | str] | None = None
+    test_values: list[int | str]
 
     def split(self, dataset, metadata):
         from torch.utils.data import Subset
@@ -111,9 +111,11 @@ class PredefinedSplitter(BaseModel):
             return list(metadata.index[col.isin(values)])
 
         train_idx = _indices(self.train_values)
-        val_idx = _indices(self.val_values)
-        test_ds = Subset(dataset, _indices(self.test_values)) if self.test_values else None
-        return Subset(dataset, train_idx), Subset(dataset, val_idx), test_ds
+        val_ds = (
+            Subset(dataset, _indices(self.val_values)) if self.val_values else None
+        )
+        test_idx = Subset(dataset, _indices(self.test_values))
+        return Subset(dataset, train_idx), val_ds, Subset(dataset, test_idx)
 
 
 Splitter = Annotated[
