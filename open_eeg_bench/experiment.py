@@ -5,24 +5,36 @@ one backbone, one head, one fine-tuning strategy, one dataset split.
 Calling ``experiment.run()`` executes the full pipeline and returns
 the test metric.
 
-``ExperimentHandler`` wraps multiple experiments with exca ``MapInfra``
-for cached, optionally parallel (SLURM) execution.
+The ``run_many()`` module-level function runs a list of experiments
+with caching.  On SLURM it submits them as a job array; locally it
+runs them sequentially or in a process pool depending on the ``cluster``
+setting of the first experiment's ``infra``.
 """
 
 import logging
-from typing import Iterable, Iterator, TYPE_CHECKING
+from typing import Annotated, ClassVar, Sequence, Union, TYPE_CHECKING
 
-from exca import ConfDict, MapInfra
+import exca
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
     import pandas as pd
 
-from open_eeg_bench.backbone import Backbone, PlaceholderBackbone, _BackboneBase
+from open_eeg_bench.backbone import (
+    PlaceholderBackbone,
+    PretrainedBackbone,
+    _BackboneBase,
+)
 from open_eeg_bench.dataset import Dataset
 from open_eeg_bench.finetuning import AdaLoRA, Finetuning, Frozen
 from open_eeg_bench.head import Head, LinearHead, OriginalHead
 from open_eeg_bench.training import Training
+
+# Backbone union with discriminator so exca can compute deterministic UIDs.
+_Backbone = Annotated[
+    Union[PretrainedBackbone, PlaceholderBackbone],
+    Field(discriminator="kind"),
+]
 
 log = logging.getLogger(__name__)
 
@@ -33,11 +45,14 @@ class Experiment(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     seed: int = 42
-    backbone: Backbone
+    backbone: _Backbone
     head: Head = Field(default_factory=LinearHead)
     finetuning: Finetuning = Field(default_factory=Frozen)
     dataset: Dataset
     training: Training = Field(default_factory=Training)
+    infra: exca.TaskInfra = exca.TaskInfra(version="1")
+
+    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("infra",)
 
     @model_validator(mode="after")
     def _check_not_placeholder(self):
@@ -57,6 +72,14 @@ class Experiment(BaseModel):
             )
         return self
 
+    @infra.apply(
+        exclude_from_cache_uid=(
+            "training.device",
+            "training.batch_size",
+            "dataset.batch_size",
+            "dataset.num_workers",
+        ),
+    )
     def run(self) -> dict:
         """Execute the full training pipeline.
 
@@ -65,7 +88,7 @@ class Experiment(BaseModel):
         dict
             Results including test metrics and adapter stats.
         """
-        import os 
+        import os
         import numpy as np
         import torch
         import torch.nn as nn
@@ -292,109 +315,64 @@ class Experiment(BaseModel):
         return cbs
 
 
-def _experiment_uid(experiment: Experiment) -> str:
-    """Compute a deterministic UID for an Experiment config."""
-    return ConfDict.from_model(experiment, uid=True).to_uid()
+def run_many(experiments: Sequence[Experiment]) -> "pd.DataFrame":
+    """Run a list of experiments with caching and optional cluster submission.
 
+    Execution mode is controlled by the ``infra`` field on each experiment:
 
-def _run_experiment(experiment: Experiment) -> dict:
-    """Run a single experiment. Standalone function for use with ThreadPoolExecutor."""
-    return experiment.run()
+    * ``cluster=None`` or ``cluster="local"`` -- run sequentially in-process.
+    * ``cluster="slurm"`` or ``cluster="auto"`` -- submit as a SLURM job array.
+    * ``cluster="processpool"`` -- run in parallel via a local process pool.
 
+    All experiments must share the same ``infra.folder`` and ``infra.cluster``
+    settings.  Per-experiment overrides (seed, dataset, etc.) are fine.
 
-class ExperimentHandler(BaseModel):
-    """Run multiple experiments with caching and optional SLURM parallelism.
+    Parameters
+    ----------
+    experiments : sequence of Experiment
+        Experiments to run.  Each must have ``infra.folder`` set for caching.
 
-    Uses exca ``MapInfra`` to cache results per experiment and optionally
-    distribute runs across SLURM jobs.
-
-    When ``parallelise_within_node=True``, experiments assigned to the same
-    node are run concurrently via threads.  This is useful when individual
-    runs are light (small batch size) and do not saturate the GPU alone.
-    Use ``infra.min_samples_per_job`` to control how many experiments land
-    on the same node.
-
-    Examples
-    --------
-    Run locally, sequentially, with caching::
-
-        handler = ExperimentHandler(infra=MapInfra(folder="./results"))
-        results = handler.run([exp1, exp2, exp3])
-
-    Run locally, 4 experiments in parallel on the same GPU::
-
-        handler = ExperimentHandler(
-            parallelise_within_node=True,
-            infra=MapInfra(folder="./results", min_samples_per_job=4),
-        )
-        results = handler.run([exp1, exp2, exp3, exp4])
-
-    Run on SLURM, 4 experiments per node in parallel::
-
-        handler = ExperimentHandler(
-            parallelise_within_node=True,
-            infra=MapInfra(
-                folder="./results",
-                cluster="slurm",
-                gpus_per_node=1,
-                mem_gb=32,
-                timeout_min=60,
-                min_samples_per_job=4,
-            ),
-        )
-        results = handler.run(experiments)
+    Returns
+    -------
+    pd.DataFrame
+        One row per experiment with flattened result columns.
     """
+    import pandas as pd
 
-    model_config = ConfigDict(extra="forbid")
-    infra: MapInfra = MapInfra()
-    parallelise_within_node: bool = Field(
-        default=False,
-        description=(
-            "If True, experiments assigned to the same node are run "
-            "concurrently via threads instead of sequentially."
-        ),
-    )
+    if not experiments:
+        return pd.DataFrame()
 
-    @infra.apply(
-        item_uid=_experiment_uid,
-        cache_type="PandasDataFrame",
-    )
-    def run(
-        self, experiments: Iterable[Experiment],
-    ) -> Iterator["pd.DataFrame"]:
-        """Run experiments, yielding one DataFrame row per experiment.
+    first = experiments[0]
 
-        Cached experiments are skipped automatically by MapInfra.
-
-        Parameters
-        ----------
-        experiments : Iterable[Experiment]
-            Experiments to run.
-
-        Yields
-        ------
-        pd.DataFrame
-            Single-row DataFrame with flattened results for each experiment.
-        """
-        import pandas as pd
-        import traceback
-
-        experiments = list(experiments)
-
-        if self.parallelise_within_node and len(experiments) > 1:
-            from concurrent.futures import ThreadPoolExecutor
-
-            with ThreadPoolExecutor(max_workers=len(experiments)) as pool:
-                raw_results = list(pool.map(_run_experiment, experiments))
-        else:
-            raw_results = []
+    # Use job_array for cluster submission (slurm, auto, processpool, etc.)
+    if first.infra.cluster is not None:
+        with first.infra.job_array(allow_repeated_tasks=False) as array:
             for exp in experiments:
-                try:
-                    raw_results.append(exp.run())
-                except Exception as e:
-                    log.error("Experiment failed: %s\n%s", e, traceback.format_exc())
-                    raw_results.append({"error": str(e)})
+                array.append(exp)
+        # Collect results from cache for completed jobs.
+        rows = []
+        for exp in experiments:
+            status = exp.infra.status()
+            if status == "completed":
+                result = exp.run()
+                rows.append(result)
+            else:
+                log.info(
+                    "Experiment %s has status '%s', skipping result collection.",
+                    exp.infra.uid(),
+                    status,
+                )
+        if rows:
+            return pd.DataFrame(rows)
+        return pd.DataFrame()
 
-        for raw in raw_results:
-            flat = ConfDict(raw).flat()
-            yield pd.DataFrame([flat])
+    # Local sequential execution (cluster=None).
+    rows = []
+    for exp in experiments:
+        try:
+            result = exp.run()
+            rows.append(result)
+        except Exception as e:
+            log.error("Experiment failed: %s", e, exc_info=True)
+            rows.append({"error": str(e)})
+    return pd.DataFrame(rows)

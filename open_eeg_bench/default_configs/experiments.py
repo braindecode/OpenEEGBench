@@ -1,6 +1,6 @@
 from itertools import product
 
-from open_eeg_bench.experiment import Experiment, ExperimentHandler
+from open_eeg_bench.experiment import Experiment
 from open_eeg_bench.training import Training, EarlyStopping
 from open_eeg_bench.default_configs import (
     ALL_DATASETS,
@@ -70,35 +70,3 @@ def make_all_experiments(
 
     return experiments
 
-
-def get_sequential_local_experiment_handler(**overrides) -> ExperimentHandler:
-    kwargs = {
-        "infra": {"cluster": "local"},
-        "parallelise_within_node": False,
-    }
-    kwargs.update(overrides)
-    return ExperimentHandler.model_validate(kwargs)
-
-
-def get_parallel_local_experiment_handler(**overrides) -> ExperimentHandler:
-    kwargs = {
-        "infra": {"cluster": "processpool"},
-        "parallelise_within_node": False,
-    }
-    kwargs.update(overrides)
-    return ExperimentHandler.model_validate(kwargs)
-
-
-def get_slurm_experiment_handler(**overrides) -> ExperimentHandler:
-    kwargs = {
-        "infra": {"cluster": "slurm"},
-        "parallelise_within_node": True,
-    }
-    kwargs.update(overrides)
-    return ExperimentHandler.model_validate(kwargs)
-
-DEFAULT_EXPERIMENT_HANDLERS = {
-    "local_sequential": get_sequential_local_experiment_handler,
-    "local_parallel": get_parallel_local_experiment_handler,
-    "slurm": get_slurm_experiment_handler,
-}

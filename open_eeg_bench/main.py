@@ -7,7 +7,7 @@ It accepts plain Python types (strings, dicts, lists) and returns a
 :class:`~pandas.DataFrame` with one row per (dataset, finetuning) combination.
 """
 
-from typing import TYPE_CHECKING, Literal
+from typing import TYPE_CHECKING
 import logging
 from typing import Any
 
@@ -15,11 +15,8 @@ if TYPE_CHECKING:
     import pandas as pd
     from torch import nn
 
-from open_eeg_bench.experiment import ExperimentHandler, Experiment
-from open_eeg_bench.default_configs.experiments import (
-    make_all_experiments,
-    DEFAULT_EXPERIMENT_HANDLERS,
-)
+from open_eeg_bench.experiment import Experiment, run_many
+from open_eeg_bench.default_configs.experiments import make_all_experiments
 from open_eeg_bench.backbone import PretrainedBackbone
 
 log = logging.getLogger(__name__)
@@ -40,11 +37,8 @@ def benchmark(
     heads: list[str] | None = None,
     finetuning_strategies: list[str] | None = None,
     n_seeds: int = 3,
-    experiment_handler: (
-        ExperimentHandler | Literal["local_sequential", "local_parallel", "slurm"]
-    ) = "local_sequential",
-    only_return_configs: bool = False,
-) -> "pd.DataFrame" | tuple[list[Experiment], ExperimentHandler]:
+    infra: dict[str, Any] | None = None,
+) -> "pd.DataFrame":
     """Benchmark an EEG model on multiple datasets and finetuning strategies.
 
     This is the main entry point for evaluating a new model. All config
@@ -73,7 +67,6 @@ def benchmark(
     normalization : Normalization, optional
         Post-window normalization to apply to each data window.
     datasets : list[str], optional
-    datasets : list[str], optional
         Dataset names to evaluate on. If ``None``, uses all datasets.
         Valid names: ``"arithmetic_zyma2019"``, ``"bcic2a"``,
         ``"bcic2020_3"``, ``"physionet"``, ``"chbmit"``, ``"faced"``,
@@ -89,14 +82,19 @@ def benchmark(
         Valid names: ``"linear_head"``, ``"mlp_head"``, ``"original_head"``.
     n_seeds : int
         Number of random seeds for initialization of the heads and new layers.
+    infra : dict, optional
+        Infrastructure config passed to each experiment's ``infra`` field.
+        Controls caching and execution. Example::
+
+            {"folder": "./results"}                     # local, cached
+            {"folder": "./results", "cluster": "slurm"} # SLURM submission
 
     Returns
     -------
     pd.DataFrame
         Results with one row per (dataset, finetuning) combination.
-        Columns include ``dataset``, ``finetuning``, the test metric
-        (``test_balanced_accuracy`` or ``test_r2``), adapter statistics,
-        and ``error`` if the run failed.
+        Columns include the test metric (``test_balanced_accuracy`` or
+        ``test_r2``), adapter statistics, and ``error`` if the run failed.
 
     Examples
     --------
@@ -119,7 +117,6 @@ def benchmark(
             finetuning_strategies=["frozen", "lora"],
         )
     """
-    # Create the backbone config with the provided model
     backbone = PretrainedBackbone(
         model_cls=model_cls,
         hub_repo=hub_repo,
@@ -131,7 +128,7 @@ def benchmark(
         peft_ff_modules=peft_ff_modules or [],
         normalization=normalization,
     )
-    # Create all experiment configs (dataset x head x finetuning x seed combinations)
+
     experiments = make_all_experiments(
         datasets=datasets,
         heads=heads,
@@ -139,22 +136,10 @@ def benchmark(
         n_seeds=n_seeds,
     )
 
-    # Replace the placeholder backbone with our actual backbone in each experiment
-    experiments = [exp.model_copy(update={"backbone": backbone}) for exp in experiments]
+    update = {"backbone": backbone}
+    if infra is not None:
+        update["infra"] = infra
+    experiments = [exp.model_copy(update=update) for exp in experiments]
+    experiments = [Experiment.model_validate(exp) for exp in experiments]
 
-    # Validate the configs before running the experiments.
-    experiments = [exp.model_validate(exp) for exp in experiments]
-
-    # Get the experiment handler (runner) based on the provided string or object.
-    if isinstance(experiment_handler, str):
-        eh_getter = DEFAULT_EXPERIMENT_HANDLERS[experiment_handler]
-        experiment_handler = eh_getter()
-
-    if only_return_configs:
-        return experiments, experiment_handler
-
-    # Launch all the experiments and collect results in a DataFrame.
-    results = experiment_handler.run(experiments)
-    import pandas as pd
-
-    return pd.concat(list(results), ignore_index=True)
+    return run_many(experiments)
