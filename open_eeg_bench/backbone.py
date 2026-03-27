@@ -14,7 +14,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, ImportString, model_validator
+from importlib import import_module
+
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 if TYPE_CHECKING:
     import torch
@@ -70,9 +72,9 @@ class PretrainedBackbone(_BackboneBase):
 
     Parameters
     ----------
-    model_cls : ImportString
+    model_cls : str
         Dotted import path to the model class,
-        e.g. ``"braindecode.models.BIOT"``.
+        e.g. ``"braindecode.models.BIOT"``. Resolved lazily in ``build()``.
     model_kwargs : dict
         Keyword arguments forwarded to the model constructor
         (architecture hyperparameters).
@@ -87,11 +89,17 @@ class PretrainedBackbone(_BackboneBase):
 
     kind: Literal["hf_hub"] = "hf_hub"
 
-    model_cls: ImportString
+    model_cls: str
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
     hub_repo: str | None = None
     checkpoint_url: str | None = None
     checkpoint_path: str | None = None
+
+    def _resolve_model_cls(self):
+        """Import and return the model class from the dotted path."""
+        module_path, cls_name = self.model_cls.rsplit(".", 1)
+        module = import_module(module_path)
+        return getattr(module, cls_name)
 
     def build(
         self,
@@ -102,6 +110,7 @@ class PretrainedBackbone(_BackboneBase):
         chs_info: list | None = None,
     ):
         """Instantiate the backbone model."""
+        cls = self._resolve_model_cls()
         kwargs = self.model_kwargs.copy()
         kwargs.update(
             n_chans=n_chans,
@@ -110,7 +119,7 @@ class PretrainedBackbone(_BackboneBase):
             sfreq=sfreq,
             chs_info=chs_info,
         )
-        return self.model_cls(**kwargs)
+        return cls(**kwargs)
 
     @model_validator(mode="after")
     def check_pretrained_fields(self):
