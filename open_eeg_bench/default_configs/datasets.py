@@ -193,8 +193,7 @@ def seed_vig(**overrides) -> Dataset:
     """SEED-VIG vigilance regression — continuous perclos target."""
     defaults = dict(
         hf_id="braindecode/seed-vig",
-        n_classes=None,
-        regression=True,
+        n_classes=None,  # regression
         splitter=PredefinedSplitter(
             metadata_key="subject",
             train_values=[f"{i:02d}" for i in [1, 2, 3, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21]],

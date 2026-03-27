@@ -125,7 +125,7 @@ class Experiment(BaseModel):
         )
 
         # 7. Build skorch callbacks
-        is_regression = self.dataset.regression
+        is_regression = self.dataset.n_classes is None
         callbacks = self._build_callbacks(regression=is_regression)
         callbacks.extend(self.finetuning.get_callbacks())
 
