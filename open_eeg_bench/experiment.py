@@ -125,17 +125,14 @@ class Experiment(BaseModel):
         )
 
         # 7. Build skorch callbacks
-        callbacks = self._build_callbacks()
+        is_regression = self.dataset.regression
+        callbacks = self._build_callbacks(regression=is_regression)
         callbacks.extend(self.finetuning.get_callbacks())
 
-        # 8. Create EEGClassifier and train
-        from braindecode import EEGClassifier
-
+        # 8. Create learner and train
         batch_size = self.training.batch_size or self.dataset.batch_size
-        classes = list(range(info["n_outputs"])) if self.dataset.n_classes else None
-        clf = EEGClassifier(
+        common_kwargs = dict(
             module=model,
-            criterion=nn.CrossEntropyLoss,
             optimizer=torch.optim.AdamW,
             optimizer__lr=self.training.lr,
             optimizer__weight_decay=self.training.weight_decay,
@@ -143,27 +140,39 @@ class Experiment(BaseModel):
             batch_size=batch_size,
             device=self.training.device,
             callbacks=callbacks,
-            classes=classes,
-            train_split=None,  # We handle splitting ourselves
+            train_split=None,
             verbose=1,
             iterator_train__num_workers=self.dataset.num_workers,
             iterator_valid__num_workers=self.dataset.num_workers,
         )
 
-        # Fit on train, validate on val
+        if is_regression:
+            from braindecode import EEGRegressor
+            learner = EEGRegressor(criterion=nn.MSELoss, **common_kwargs)
+        else:
+            from braindecode import EEGClassifier
+            classes = list(range(info["n_outputs"])) if self.dataset.n_classes else None
+            learner = EEGClassifier(
+                criterion=nn.CrossEntropyLoss, classes=classes, **common_kwargs,
+            )
+
         from skorch.helper import predefined_split
-        clf.train_split = predefined_split(val_set)
-        clf.fit(train_set, y=None)
+        learner.train_split = predefined_split(val_set)
+        learner.fit(train_set, y=None)
 
         # 9. Test
         results = {"adapter_stats": adapter_stats}
         if test_set is not None:
-            y_pred = clf.predict(test_set)
+            y_pred = learner.predict(test_set)
             y_true = np.array([test_set[i][1] for i in range(len(test_set))])
-            from sklearn.metrics import balanced_accuracy_score
-            test_acc = balanced_accuracy_score(y_true, y_pred)
-            results["test_balanced_accuracy"] = test_acc
-            log.info("Test balanced accuracy: %.4f", test_acc)
+            if is_regression:
+                from sklearn.metrics import r2_score
+                results["test_r2"] = float(r2_score(y_true, y_pred.ravel()))
+                log.info("Test R²: %.4f", results["test_r2"])
+            else:
+                from sklearn.metrics import balanced_accuracy_score
+                results["test_balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
+                log.info("Test balanced accuracy: %.4f", results["test_balanced_accuracy"])
         else:
             log.info("No test set configured.")
 
@@ -188,7 +197,7 @@ class Experiment(BaseModel):
             model.train()
         log.info("Initialized lazy modules with dummy forward pass")
 
-    def _build_callbacks(self) -> list:
+    def _build_callbacks(self, regression: bool = False) -> list:
         """Build skorch callbacks from training config."""
         from skorch.callbacks import (
             EarlyStopping as SkorchEarlyStopping,
@@ -199,22 +208,13 @@ class Experiment(BaseModel):
 
         cbs = []
 
-        # Accuracy scoring
+        # Scoring
+        scoring = "r2" if regression else "balanced_accuracy"
         cbs.append(
-            EpochScoring(
-                "balanced_accuracy",
-                name="valid_acc",
-                lower_is_better=False,
-                on_train=False,
-            )
+            EpochScoring(scoring, name="valid_score", lower_is_better=False, on_train=False)
         )
         cbs.append(
-            EpochScoring(
-                "balanced_accuracy",
-                name="train_acc",
-                lower_is_better=False,
-                on_train=True,
-            )
+            EpochScoring(scoring, name="train_score", lower_is_better=False, on_train=True)
         )
 
         # Early stopping
