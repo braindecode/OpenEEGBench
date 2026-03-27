@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 """High-level benchmarking entry point.
 
 ``benchmark()`` is the simplest way to evaluate an EEG foundation model.

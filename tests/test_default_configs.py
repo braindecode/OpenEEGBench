@@ -6,6 +6,7 @@ from open_eeg_bench.default_configs.backbones import ALL_BACKBONES
 from open_eeg_bench.default_configs import ALL_FINETUNING, ALL_HEADS
 from open_eeg_bench.default_configs.datasets import ALL_DATASETS
 from open_eeg_bench.experiment import Experiment
+from open_eeg_bench.dataset import PredefinedSplitter
 from open_eeg_bench.finetuning import Frozen, FullFinetune
 from open_eeg_bench.head import OriginalHead
 
@@ -57,6 +58,28 @@ def test_frozen_with_original_head_rejected():
             head=OriginalHead(),
             finetuning=Frozen(),
             dataset=arithmetic_zyma2019(),
+        )
+
+
+def test_predefined_splitter_both_val_sources_rejected():
+    """Providing both val_values and val_size should fail."""
+    with pytest.raises(ValueError, match="Exactly one of val_values or val_size"):
+        PredefinedSplitter(
+            metadata_key="train",
+            train_values=[True],
+            val_values=[False],
+            val_size=5,
+            test_values=[False],
+        )
+
+
+def test_predefined_splitter_no_val_source_rejected():
+    """Providing neither val_values nor val_size should fail."""
+    with pytest.raises(ValueError, match="Exactly one of val_values or val_size"):
+        PredefinedSplitter(
+            metadata_key="train",
+            train_values=[True],
+            test_values=[False],
         )
 
 

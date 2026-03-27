@@ -93,14 +93,28 @@ class CrossSubjectSplitter(BaseModel):
 
 
 class PredefinedSplitter(BaseModel):
-    """Split by predefined metadata values (e.g. subject IDs)."""
+    """Split by predefined metadata values (e.g. subject IDs).
+
+    Validation set is specified either by explicit ``val_values`` or by
+    randomly sampling ``val_split`` fraction from the training indices.
+    Exactly one of the two must be provided.
+    """
 
     model_config = ConfigDict(extra="forbid")
     kind: Literal["predefined"] = "predefined"
     metadata_key: str
     train_values: list[int | str]
     val_values: list[int | str] | None = None
+    val_size: float | None = None
     test_values: list[int | str]
+
+    @model_validator(mode="after")
+    def check_val_source(self):
+        if (self.val_values is not None) == (self.val_size is not None):
+            raise ValueError(
+                "Exactly one of val_values or val_size must be provided."
+            )
+        return self
 
     def split(self, dataset, metadata):
         from torch.utils.data import Subset
@@ -110,12 +124,29 @@ class PredefinedSplitter(BaseModel):
         def _indices(values):
             return list(metadata.index[col.isin(values)])
 
-        train_idx = _indices(self.train_values)
-        val_ds = (
-            Subset(dataset, _indices(self.val_values)) if self.val_values else None
+        all_train_idx = _indices(self.train_values)
+        test_idx = _indices(self.test_values)
+
+        if self.val_values is not None:
+            train_idx = all_train_idx
+            val_idx = _indices(self.val_values)
+        else:
+            from sklearn.model_selection import GroupShuffleSplit
+            subjects = metadata['subject'].values
+            gss = GroupShuffleSplit(
+                n_splits=1,
+                test_size=self.val_size,
+                random_state=12,
+            )
+            train_idx, val_idx = next(
+                gss.split(all_train_idx, groups=subjects[all_train_idx])
+            )
+
+        return (
+            Subset(dataset, train_idx),
+            Subset(dataset, val_idx),
+            Subset(dataset, test_idx),
         )
-        test_idx = Subset(dataset, _indices(self.test_values))
-        return Subset(dataset, train_idx), val_ds, Subset(dataset, test_idx)
 
 
 Splitter = Annotated[

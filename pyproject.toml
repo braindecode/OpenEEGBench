@@ -18,7 +18,7 @@ dependencies = [
     "torch>=2.0",
     "numpy",
     "pandas",
-    "scikit-learn",
+    "scikit-learn>=1.6.0",
     "skorch",
     "wandb",
     "huggingface-hub",

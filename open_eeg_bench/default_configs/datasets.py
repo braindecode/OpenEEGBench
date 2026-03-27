@@ -214,7 +214,8 @@ def tuab(**overrides) -> Dataset:
         splitter=PredefinedSplitter(
             metadata_key="train",
             train_values=[True],
-            test_values=[False],  # use eval set as test; override for CV
+            val_size=0.2,
+            test_values=[False],
         ),
         batch_size=32,
     )
@@ -230,7 +231,8 @@ def tuev(**overrides) -> Dataset:
         splitter=PredefinedSplitter(
             metadata_key="split",
             train_values=["train"],
-            test_values=["eval"],  # use eval set as test; override for CV
+            val_size=0.2,
+            test_values=["eval"],
         ),
         batch_size=32,
     )
