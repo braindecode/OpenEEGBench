@@ -80,14 +80,14 @@ def main():
     experiments = [
         Experiment.model_construct(
             training=default_training(),
-            head=LinearHead(seed=1),
+            head=LinearHead(),
             finetuning=Frozen(),
             dataset=tuab(),
             backbone=backbone,
         ),
         Experiment.model_construct(
             training=default_training(),
-            head=LinearHead(seed=1),
+            head=LinearHead(),
             finetuning=Frozen(),
             dataset=tuev(),
             backbone=backbone,
