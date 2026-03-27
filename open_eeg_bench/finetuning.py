@@ -189,9 +189,10 @@ class AdaLoRA(BaseModel):
     def apply(self, model, backbone):
         from peft import AdaLoraConfig as PeftAdaLoraConfig
 
+        target_modules = _filter_linear_targets(model, list(backbone.peft_target_modules))
         cfg = PeftAdaLoraConfig(
             r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
-            target_modules=backbone.peft_target_modules,
+            target_modules=target_modules,
             total_step=self.total_step, target_r=self.target_r, init_r=self.init_r,
             tinit=self.tinit, tfinal=self.tfinal, deltaT=self.deltaT,
         )
