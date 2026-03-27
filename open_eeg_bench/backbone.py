@@ -32,7 +32,8 @@ class _BackboneBase(BaseModel):
 
     # --- Coupling fields (queried by finetuning / head / dataset) ---
     peft_target_modules: list[str] = Field(
-        description="Module names to target for PEFT adapters (LoRA, IA3, etc.)."
+        default_factory=list,
+        description="Module names to target for PEFT adapters (LoRA, IA3, etc.).",
     )
     peft_ff_modules: list[str] = Field(
         default_factory=list,
@@ -78,7 +79,10 @@ class PretrainedBackbone(_BackboneBase):
     hub_repo : str, optional
         HuggingFace Hub repo ID for pretrained weights, e.g. ``"braindecode/biot-pretrained-prest-16chs"``.
     checkpoint_url : str, optional
-        Direct URL for pretrained weights (e.g. a .bin or .safetensors file). If both this and ``hub_repo`` are provided, ``hub_repo`` takes precedence.
+        Direct URL for pretrained weights (e.g. a .bin or .safetensors file).
+    checkpoint_path : str, optional
+        Local filesystem path to pretrained weights (.pth, .bin, or .safetensors).
+        Supports both raw state dicts and checkpoint dicts with a ``"state_dict"`` key.
     """
 
     kind: Literal["hf_hub"] = "hf_hub"
@@ -87,6 +91,7 @@ class PretrainedBackbone(_BackboneBase):
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
     hub_repo: str | None = None
     checkpoint_url: str | None = None
+    checkpoint_path: str | None = None
 
     def build(
         self,
@@ -109,15 +114,21 @@ class PretrainedBackbone(_BackboneBase):
 
     @model_validator(mode="after")
     def check_pretrained_fields(self):
-        if (self.hub_repo is not None) == (self.checkpoint_url is not None):
+        sources = [
+            self.hub_repo is not None,
+            self.checkpoint_url is not None,
+            self.checkpoint_path is not None,
+        ]
+        if sum(sources) != 1:
             raise ValueError(
-                "Exactly one of hub_repo or checkpoint_url must be provided."
+                "Exactly one of hub_repo, checkpoint_url, or checkpoint_path "
+                "must be provided."
             )
         return self
 
     def load_pretrained(self, model) -> None:
         """Load pretrained weights into the model."""
-        if self.hub_repo is None and self.checkpoint_url is None:
+        if self.hub_repo is None and self.checkpoint_url is None and self.checkpoint_path is None:
             return
 
         import torch
@@ -128,6 +139,12 @@ class PretrainedBackbone(_BackboneBase):
             state_dict = torch.hub.load_state_dict_from_url(
                 self.checkpoint_url, progress=True
             )
+        elif self.checkpoint_path is not None:
+            state_dict = torch.load(
+                self.checkpoint_path, map_location="cpu", weights_only=False
+            )
+            if isinstance(state_dict, dict) and "state_dict" in state_dict:
+                state_dict = state_dict["state_dict"]
         else:
             raise ValueError("No pretrained weights specified.")
 

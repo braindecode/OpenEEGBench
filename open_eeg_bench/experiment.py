@@ -10,10 +10,13 @@ for cached, optionally parallel (SLURM) execution.
 """
 
 import logging
-from typing import Iterable, Iterator
+from typing import Iterable, Iterator, TYPE_CHECKING
 
 from exca import ConfDict, MapInfra
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from open_eeg_bench.backbone import Backbone, PlaceholderBackbone, _BackboneBase
 from open_eeg_bench.dataset import Dataset
@@ -62,15 +65,38 @@ class Experiment(BaseModel):
         dict
             Results including test metrics and adapter stats.
         """
+        import os 
         import numpy as np
         import torch
         import torch.nn as nn
 
-        # 0. Seed
-        torch.manual_seed(self.seed)
+        # ===============================================================
+        # 0. Seed EVERYTHING for reproducibility
+        # ===============================================================
         np.random.seed(self.seed)
+        torch.manual_seed(self.seed)
+        # Handle CUDA determinism carefully
+        try:
+            import multiprocessing
+            # Check if we are in a worker process
+            is_worker = "LokyProcess" in multiprocessing.current_process().name or "SpawnPoolWorker" in multiprocessing.current_process().name
+            # Use environment heuristic or process name
+            if torch.cuda.is_available():
+                 # Only set CUDA seeds if we are in a worker or explicit single-run
+                 torch.cuda.manual_seed(self.seed)
+                 torch.cuda.manual_seed_all(self.seed)
 
+                 if hasattr(torch.backends, "cudnn"):
+                      torch.backends.cudnn.benchmark = False
+                      torch.backends.cudnn.deterministic = True
+        except Exception as e:
+            log.warning(f"Skipped CUDA determinism settings: {e}")
+        os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
+        log.info(f"Set random seed to {self.seed} with full determinism enabled")
+
+        # ===============================================================
         # 1. Load data
+        # ===============================================================
         backbone_obj: _BackboneBase = self.backbone  # type: ignore[assignment]
         full_ds, train_set, val_set, test_set, info = self.dataset.setup(
             normalization=backbone_obj.normalization
@@ -85,7 +111,9 @@ class Experiment(BaseModel):
             info["sfreq"],
         )
 
+        # ===============================================================
         # 2. Build model
+        # ===============================================================
         model = backbone_obj.build(
             n_chans=info["n_chans"],
             n_times=info["n_times"],
@@ -94,16 +122,24 @@ class Experiment(BaseModel):
             chs_info=info["chs_info"],
         )
 
+        # ===============================================================
         # 3. Load pretrained weights
+        # ===============================================================
         backbone_obj.load_pretrained(model)
 
+        # ===============================================================
         # 4. Apply head
+        # ===============================================================
         self.head.apply(model, info["n_outputs"], backbone_obj.head_module_name)
 
+        # ===============================================================
         # 5. Initialize lazy modules with a dummy forward pass
+        # ===============================================================
         self._initialize_lazy_modules(model, info)
 
+        # ===============================================================
         # 6. Apply finetuning
+        # ===============================================================
         finetuning = self.finetuning
         if isinstance(finetuning, AdaLoRA) and finetuning.total_step is None:
             batch_size = self.training.batch_size or self.dataset.batch_size
@@ -124,12 +160,16 @@ class Experiment(BaseModel):
             adapter_stats["trainable_pct"],
         )
 
+        # ===============================================================
         # 7. Build skorch callbacks
+        # ===============================================================
         is_regression = self.dataset.n_classes is None
         callbacks = self._build_callbacks(regression=is_regression)
         callbacks.extend(self.finetuning.get_callbacks())
 
+        # ===============================================================
         # 8. Create learner and train
+        # ===============================================================
         batch_size = self.training.batch_size or self.dataset.batch_size
         common_kwargs = dict(
             module=model,
@@ -160,7 +200,9 @@ class Experiment(BaseModel):
         learner.train_split = predefined_split(val_set)
         learner.fit(train_set, y=None)
 
+        # ===============================================================
         # 9. Test
+        # ===============================================================
         results = {"adapter_stats": adapter_stats}
         if test_set is not None:
             y_pred = learner.predict(test_set)

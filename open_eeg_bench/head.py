@@ -22,16 +22,15 @@ class LinearHead(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     kind: Literal["linear"] = "linear"
-    seed: int = 1
 
     def apply(self, model, n_outputs: int, head_module_name: str) -> None:
-        import torch
         import torch.nn as nn
 
-        torch.manual_seed(self.seed)
         new_head = nn.Sequential(nn.Flatten(1), nn.LazyLinear(n_outputs))
         setattr(model, head_module_name, new_head)
-        log.info("Replaced '%s' with LinearHead (n_outputs=%d)", head_module_name, n_outputs)
+        log.info(
+            "Replaced '%s' with LinearHead (n_outputs=%d)", head_module_name, n_outputs
+        )
 
 
 class MLPHead(BaseModel):
@@ -41,13 +40,10 @@ class MLPHead(BaseModel):
     kind: Literal["mlp"] = "mlp"
     hidden_dim: int = 256
     dropout: float = 0.5
-    seed: int = 1
 
     def apply(self, model, n_outputs: int, head_module_name: str) -> None:
-        import torch
         import torch.nn as nn
 
-        torch.manual_seed(self.seed)
         new_head = nn.Sequential(
             nn.Flatten(1),
             nn.LazyLinear(self.hidden_dim),
@@ -69,7 +65,6 @@ class OriginalHead(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     kind: Literal["original"] = "original"
-    seed: int = 1
 
     def apply(self, model: nn.Module, n_outputs: int, head_module_name: str) -> None:
         log.info("Keeping original head '%s'", head_module_name)
