@@ -32,7 +32,8 @@ class _BackboneBase(BaseModel):
 
     # --- Coupling fields (queried by finetuning / head / dataset) ---
     peft_target_modules: list[str] = Field(
-        description="Module names to target for PEFT adapters (LoRA, IA3, etc.)."
+        default_factory=list,
+        description="Module names to target for PEFT adapters (LoRA, IA3, etc.).",
     )
     peft_ff_modules: list[str] = Field(
         default_factory=list,
