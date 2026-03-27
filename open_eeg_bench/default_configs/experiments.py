@@ -36,11 +36,12 @@ def make_all_experiments(
     ):
         exp = Experiment.model_construct(
             training=default_training(),
-            head=ALL_HEADS[head_name](seed=seed),
+            head=ALL_HEADS[head_name](),
             finetuning=ALL_FINETUNING[finetuning_name](),
             dataset=ALL_DATASETS[dataset_name](),
             # Placeholder must be replaced by an actual backbone
             backbone=PlaceholderBackbone(),
+            seed=seed,
         )
         experiments.append(exp)
 
