@@ -1,7 +1,6 @@
 from itertools import product
-from typing import Iterable
 
-from open_eeg_bench.experiment import Experiment
+from open_eeg_bench.experiment import Experiment, ExperimentHandler
 from open_eeg_bench.training import Training, EarlyStopping
 from open_eeg_bench.default_configs import (
     ALL_DATASETS,
@@ -38,7 +37,7 @@ def make_all_experiments(
         ``"bcic2020_3"``, ``"physionet"``, ``"chbmit"``, ``"faced"``,
         ``"isruc_sleep"``, ``"mdd_mumtaz2016"``, ``"seed_v"``,
         ``"seed_vig"``, ``"tuab"``, ``"tuev"``.
-    finetuning : list[str], optional
+    finetuning_strategies : list[str], optional
         Finetuning strategy names. If ``None``, uses ``["frozen"]``
         (linear probing). Valid names: ``"frozen"``, ``"lora"``,
         ``"ia3"``, ``"adalora"``, ``"dora"``, ``"oft"``,
@@ -70,3 +69,36 @@ def make_all_experiments(
         experiments.append(exp)
 
     return experiments
+
+
+def get_sequential_local_experiment_handler(**overrides) -> ExperimentHandler:
+    kwargs = {
+        "infra": {"cluster": "local"},
+        "parallelise_within_node": False,
+    }
+    kwargs.update(overrides)
+    return ExperimentHandler.model_validate(kwargs)
+
+
+def get_parallel_local_experiment_handler(**overrides) -> ExperimentHandler:
+    kwargs = {
+        "infra": {"cluster": "processpool"},
+        "parallelise_within_node": False,
+    }
+    kwargs.update(overrides)
+    return ExperimentHandler.model_validate(kwargs)
+
+
+def get_slurm_experiment_handler(**overrides) -> ExperimentHandler:
+    kwargs = {
+        "infra": {"cluster": "slurm"},
+        "parallelise_within_node": True,
+    }
+    kwargs.update(overrides)
+    return ExperimentHandler.model_validate(kwargs)
+
+DEFAULT_EXPERIMENT_HANDLERS = {
+    "local_sequential": get_sequential_local_experiment_handler,
+    "local_parallel": get_parallel_local_experiment_handler,
+    "slurm": get_slurm_experiment_handler,
+}

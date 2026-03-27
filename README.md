@@ -35,7 +35,40 @@ source .venv/bin/activate
 uv pip install -e ".[dev]"
 ```
 
-### Run your first experiment
+### Benchmark your model
+
+The `benchmark()` function is the simplest way to evaluate your model. Just point it to your model class and pretrained weights:
+
+```python
+from open_eeg_bench import benchmark
+
+results = benchmark(
+    model_cls="my_package.MyModel",
+    checkpoint_url="https://my-weights.pth",
+    peft_target_modules=["encoder.linear1", "encoder.linear2"],
+)
+print(results)
+```
+
+This runs linear probing on **all 12 datasets** and returns a DataFrame with one row per result.
+
+You can pick specific datasets and finetuning strategies:
+
+```python
+results = benchmark(
+    model_cls="my_package.MyModel",
+    checkpoint_url="https://my-weights.pth",
+    peft_target_modules=["encoder.linear1", "encoder.linear2"],
+    datasets=["arithmetic_zyma2019", "bcic2a", "physionet"],
+    finetuning=["frozen", "lora"],
+)
+```
+
+See the [Benchmarking Your Own Model](#-benchmarking-your-own-model) section for full details on model requirements.
+
+### Advanced: fine-grained control with `Experiment`
+
+For full control over every parameter, use the `Experiment` class directly:
 
 ```python
 from open_eeg_bench.experiment import Experiment
@@ -45,7 +78,6 @@ from open_eeg_bench.head import LinearHead
 from open_eeg_bench.finetuning import Frozen, LoRA
 from open_eeg_bench.training import Training
 
-# Linear probing: freeze the backbone, train only the head
 experiment = Experiment(
     backbone=biot(),
     head=LinearHead(),
@@ -55,15 +87,6 @@ experiment = Experiment(
 )
 results = experiment.run()
 print(f"Test accuracy: {results['test_balanced_accuracy']:.2%}")
-
-# Or try LoRA fine-tuning instead — just swap one line:
-experiment = Experiment(
-    backbone=biot(),
-    head=LinearHead(),
-    finetuning=LoRA(r=16, alpha=32),
-    dataset=arithmetic_zyma2019(),
-    training=Training(max_epochs=30, device="cpu"),
-)
 ```
 
 ---
@@ -96,32 +119,44 @@ The `Experiment` class composes them and runs the full pipeline:
 
 ## 🔌 Benchmarking Your Own Model
 
-This is the primary use case of Open EEG Bench. You can wrap **any PyTorch EEG model** and benchmark it against the built-in backbones.
+This is the primary use case of Open EEG Bench. You can benchmark **any PyTorch EEG model** with a single function call.
 
-### Minimal: just make it work
+### Model requirements
 
 Your model only needs to:
 1. Accept input of shape `(batch, n_chans, n_times)`
 2. Return output of shape `(batch, n_outputs)`
 3. Have a named module for the classification head (e.g. `self.final_layer`)
 
-```python
-from open_eeg_bench.backbone import PretrainedBackbone
-from open_eeg_bench.experiment import Experiment
-from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+### Minimal: `benchmark()`
 
-results = Experiment(
-    backbone=PretrainedBackbone(
-        model_cls="my_package.MyModel",
-        model_kwargs=dict(hidden_dim=128),
-        checkpoint_url="https://my-model-checkpoint-url.pth",
-        peft_target_modules=["encoder.linear1", "encoder.linear2"],
-        peft_ff_modules=["encoder.linear2"],
-        head_module_name="final_layer",
-    ),
-    dataset=arithmetic_zyma2019(),
-).run()
+```python
+from open_eeg_bench import benchmark
+
+results = benchmark(
+    model_cls="my_package.MyModel",
+    model_kwargs=dict(hidden_dim=128),
+    checkpoint_url="https://my-model-checkpoint-url.pth",
+    peft_target_modules=["encoder.linear1", "encoder.linear2"],
+    head_module_name="final_layer",
+)
 ```
+
+**Parameters:**
+
+| Parameter | Required | Description |
+|-----------|----------|-------------|
+| `model_cls` | Yes | Dotted import path to your model class |
+| `hub_repo` | One of three | HuggingFace Hub repo ID for weights |
+| `checkpoint_url` | One of three | URL to pretrained weights |
+| `checkpoint_path` | One of three | Local path to pretrained weights |
+| `peft_target_modules` | For PEFT | Module names to adapt (e.g. `["to_q", "to_k", "to_v"]`) |
+| `model_kwargs` | No | Extra kwargs for the model constructor |
+| `head_module_name` | No | Name of the head module (default: `"final_layer"`) |
+| `normalization` | No | Post-window normalization |
+| `datasets` | No | Dataset names to evaluate on (default: all 12) |
+| `finetuning` | No | Strategy names (default: `["frozen"]`) |
+| `device` | No | `"cpu"`, `"cuda"`, etc. (default: auto-detect) |
 
 ### Recommended: full braindecode compatibility
 

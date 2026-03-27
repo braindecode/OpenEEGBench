@@ -10,10 +10,13 @@ for cached, optionally parallel (SLURM) execution.
 """
 
 import logging
-from typing import Iterable, Iterator
+from typing import Iterable, Iterator, TYPE_CHECKING
 
 from exca import ConfDict, MapInfra
 from pydantic import BaseModel, ConfigDict, Field, model_validator
+
+if TYPE_CHECKING:
+    import pandas as pd
 
 from open_eeg_bench.backbone import Backbone, PlaceholderBackbone, _BackboneBase
 from open_eeg_bench.dataset import Dataset
