@@ -13,3 +13,5 @@ build/
 wandb/
 results/
 .DS_Store
+.claude/
+.vscode/
