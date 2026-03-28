@@ -25,26 +25,33 @@ uv pip install -e ".[dev]"
 from open_eeg_bench import benchmark
 
 results = benchmark(
-    model_cls="my_package.MyModel",
+    model_cls="my_package.MyModel",  # import path to your model class
     checkpoint_url="https://my-weights.pth",
-    peft_target_modules=["encoder.linear1", "encoder.linear2"],
 )
-print(results)
+
+print(results)  # pd.DataFrame
 ```
 
 This runs linear probing on **all 12 datasets** and returns a DataFrame with one row per result.
 
-You can pick specific datasets and fine-tuning strategies:
+You can pick specific datasets, fine-tuning strategies, classification heads and number of initialization seeds:
 
 ```python
 results = benchmark(
     model_cls="my_package.MyModel",
     checkpoint_url="https://my-weights.pth",
-    peft_target_modules=["encoder.linear1", "encoder.linear2"],
     datasets=["arithmetic_zyma2019", "bcic2a", "physionet"],
-    finetuning=["frozen", "lora"],
+    finetuning_strategies=["frozen", "lora"],
+    peft_target_modules=[  # necessary for LoRA, IA3, AdaLoRA, OFT, and DoRA
+        "encoder.linear1", 
+        "encoder.linear2"
+    ],
+    heads=["linear_head", "mlp_head"],
+    n_seeds=5,
 )
 ```
+
+Need to run on a SLURM cluster? No `sbatch` scripts needed — see [Running on a cluster](docs/cluster.md).
 
 ## 📐 Model requirements
 
@@ -107,6 +114,7 @@ MIT
 
 ## 📚 Further reading
 
+- [Running on a cluster](docs/cluster.md) — SLURM submission, `infra` options, caching, execution modes
 - [Advanced usage](docs/advanced.md) — `Experiment` class, architecture overview, braindecode integration
 - [Built-in backbones](docs/backbones.md) — Pretrained models shipped with the benchmark
 - [Contributing](docs/contributing.md) — How to add backbones, datasets, or fine-tuning strategies
