@@ -70,12 +70,17 @@ Your model only needs to:
 | `checkpoint_url` | One of three | URL to pretrained weights |
 | `checkpoint_path` | One of three | Local path to pretrained weights |
 | `peft_target_modules` | For PEFT | Module names to adapt (e.g. `["to_q", "to_k", "to_v"]`) |
+| `peft_ff_modules` | For IA3 | Feedforward module names for IA3 adapter |
 | `model_kwargs` | No | Extra kwargs for the model constructor |
 | `head_module_name` | No | Name of the head module (default: `"final_layer"`) |
 | `normalization` | No | Post-window normalization |
 | `datasets` | No | Dataset names to evaluate on (default: all 12) |
-| `finetuning` | No | Strategy names (default: `["frozen"]`) |
-| `device` | No | `"cpu"`, `"cuda"`, etc. (default: auto-detect) |
+| `heads` | No | Head names: `"linear_head"`, `"mlp_head"`, `"original_head"` (default: `["linear_head"]`) |
+| `finetuning_strategies` | No | Strategy names (default: `["frozen"]`) |
+| `n_seeds` | No | Number of random seeds (default: `3`) |
+| `device` | No | `"cpu"`, `"cuda"`, etc. (default: `"cpu"`) |
+| `infra` | No | Infrastructure config for caching and cluster submission (see [cluster docs](docs/cluster.md)) |
+| `max_workers` | No | Max simultaneous SLURM jobs (default: `256`) |
 
 ## 📊 Available datasets
 
