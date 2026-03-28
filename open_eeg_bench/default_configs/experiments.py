@@ -43,13 +43,13 @@ def make_all_experiments(
         ``"ia3"``, ``"adalora"``, ``"dora"``, ``"oft"``,
         ``"full_finetune"``.
     heads : list[str], optional
-        Head names to evaluate. If ``None``, uses ``["linear_head", "mlp_head"]``.
+        Head names to evaluate. If ``None``, uses ``["linear_head"]``.
         Valid names: ``"linear_head"``, ``"mlp_head"``, ``"original_head"``.
     n_seeds : int
         Number of random seeds for initialization of the heads and new layers.
     """
     seeds = list(range(1, n_seeds + 1))
-    heads = heads or ["linear_head", "mlp_head"]
+    heads = heads or ["linear_head"]
     finetuning_strategies = finetuning_strategies or ["frozen"]
     datasets = datasets or list(ALL_DATASETS.keys())
 

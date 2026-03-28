@@ -80,7 +80,7 @@ def benchmark(
         ``"ia3"``, ``"adalora"``, ``"dora"``, ``"oft"``,
         ``"full_finetune"``.
     heads : list[str], optional
-        Head names to evaluate. If ``None``, uses ``["linear_head", "mlp_head"]``.
+        Head names to evaluate. If ``None``, uses ``["linear_head"]``.
         Valid names: ``"linear_head"``, ``"mlp_head"``, ``"original_head"``.
     n_seeds : int
         Number of random seeds for initialization of the heads and new layers.
