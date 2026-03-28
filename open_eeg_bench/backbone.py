@@ -96,7 +96,13 @@ class PretrainedBackbone(_BackboneBase):
     checkpoint_path: str | None = None
 
     def _resolve_model_cls(self):
-        """Import and return the model class from the dotted path."""
+        """Resolve and return the model class from a dotted import path.
+        Dynamically imports a model class specified as a fully-qualified dotted path
+        (e.g., 'path.to.module.ClassName'). This approach avoids using pydantic.ImportString
+        to prevent expensive imports (torch, braindecode) from being triggered during
+        validation, which is critical for resource-constrained environments like cluster
+        login nodes.
+        """
         module_path, cls_name = self.model_cls.rsplit(".", 1)
         module = import_module(module_path)
         return getattr(module, cls_name)
@@ -205,5 +211,3 @@ class PlaceholderBackbone(_BackboneBase):
     kind: Literal["placeholder"] = "placeholder"
     peft_target_modules: list[str] = []
 
-
-Backbone = Union[PretrainedBackbone, PlaceholderBackbone]
