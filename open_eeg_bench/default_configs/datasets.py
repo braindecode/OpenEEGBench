@@ -23,7 +23,6 @@ def arithmetic_zyma2019(**overrides) -> Dataset:
             val_values=[f"{i:02d}" for i in range(28, 32)],
             test_values=[f"{i:02d}" for i in range(32, 36)],
         ),
-        batch_size=64,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -40,7 +39,6 @@ def bcic2a(**overrides) -> Dataset:
             val_values=[4, 5, 6],
             test_values=[7, 8, 9],
         ),
-        batch_size=64,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -57,7 +55,6 @@ def bcic2020_3(**overrides) -> Dataset:
             val_values=["01"],
             test_values=["02"],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -74,7 +71,6 @@ def physionet(**overrides) -> Dataset:
             val_values=list(range(71, 90)),
             test_values=list(range(90, 110)),
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -91,7 +87,6 @@ def chbmit(**overrides) -> Dataset:
             val_values=["chb20", "chb21"],
             test_values=["chb22", "chb23"],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -108,7 +103,6 @@ def faced(**overrides) -> Dataset:
             val_values=[f"{i:03d}" for i in range(80, 100)],
             test_values=[f"{i:03d}" for i in range(100, 123)],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -135,7 +129,6 @@ def isruc_sleep(**overrides) -> Dataset:
             val_values=[f"I{i:03d}" for i in range(81, 91)],
             test_values=[f"I{i:03d}" for i in range(91, 101)],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -166,7 +159,6 @@ def mdd_mumtaz2016(**overrides) -> Dataset:
             ],
             # fmt: on
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -183,7 +175,6 @@ def seed_v(**overrides) -> Dataset:
             val_values=["02"],
             test_values=["03"],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -200,7 +191,6 @@ def seed_vig(**overrides) -> Dataset:
             val_values=[f"{i:02d}" for i in [4, 5]],
             test_values=[f"{i:02d}" for i in [6, 7, 8, 9]],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -217,7 +207,6 @@ def tuab(**overrides) -> Dataset:
             val_size=0.2,
             test_values=[False],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
@@ -234,7 +223,6 @@ def tuev(**overrides) -> Dataset:
             val_size=0.2,
             test_values=["eval"],
         ),
-        batch_size=32,
     )
     defaults.update(overrides)
     return Dataset(**defaults)
