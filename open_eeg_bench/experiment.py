@@ -240,16 +240,19 @@ class Experiment(BaseModel):
         log.info("Initialized lazy modules with dummy forward pass")
 
 
-
-
-def run_many(experiments: Sequence[Experiment]) -> "pd.DataFrame":
+def run_many(
+    experiments: Sequence[Experiment],
+    max_workers: int = 256,
+) -> "pd.DataFrame":
     """Run a list of experiments with caching and optional cluster submission.
 
     Execution mode is controlled by the ``infra`` field on each experiment:
 
-    * ``cluster=None`` or ``cluster="local"`` -- run sequentially in-process.
-    * ``cluster="slurm"`` or ``cluster="auto"`` -- submit as a SLURM job array.
-    * ``cluster="processpool"`` -- run in parallel via a local process pool.
+    * ``cluster=None`` -- run sequentially in the current process.
+    * ``cluster="local"`` -- run in parallel as local subprocesses
+      (all jobs are launched at once; ``max_workers`` is ignored).
+    * ``cluster="slurm"`` -- submit as a SLURM job array with at most
+      ``max_workers`` jobs running simultaneously.
 
     All experiments must share the same ``infra.folder`` and ``infra.cluster``
     settings.  Per-experiment overrides (seed, dataset, etc.) are fine.
@@ -258,6 +261,9 @@ def run_many(experiments: Sequence[Experiment]) -> "pd.DataFrame":
     ----------
     experiments : sequence of Experiment
         Experiments to run.  Each must have ``infra.folder`` set for caching.
+    max_workers : int
+        Maximum number of SLURM jobs running at the same time (maps to
+        ``--array=...%max_workers``).  Only effective with ``cluster="slurm"``.
 
     Returns
     -------
@@ -271,35 +277,27 @@ def run_many(experiments: Sequence[Experiment]) -> "pd.DataFrame":
 
     first = experiments[0]
 
-    # Use job_array for cluster submission (slurm, auto, processpool, etc.)
-    if first.infra.cluster is not None:
-        with first.infra.job_array(allow_repeated_tasks=False) as array:
-            for exp in experiments:
-                array.append(exp)
-        # Collect results from cache for completed jobs.
-        rows = []
-        for exp in experiments:
-            status = exp.infra.status()
-            if status == "completed":
-                result = exp.run()
-                rows.append(result)
-            else:
-                log.info(
-                    "Experiment %s has status '%s', skipping result collection.",
-                    exp.infra.uid(),
-                    status,
-                )
-        if rows:
-            return pd.DataFrame(rows)
-        return pd.DataFrame()
+    # Launch the jobs (non-blocking for slurm/local, blocking for cluster=None)
+    with first.infra.job_array(max_workers=max_workers) as array:
+        array.extend(experiments)
 
-    # Local sequential execution (cluster=None).
+    # Collect results of the completed jobs
     rows = []
+    status_counts = {}
     for exp in experiments:
-        try:
+        status = exp.infra.status()
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if status == "completed":
             result = exp.run()
             rows.append(result)
-        except Exception as e:
-            log.error("Experiment failed: %s", e, exc_info=True)
-            rows.append({"error": str(e)})
-    return pd.DataFrame(rows)
+        else:
+            log.info(
+                f"Experiment {exp.infra.uid()} has status '{status}', skipping result collection."
+            )
+    # Print summary of job statuses:
+    log.info(f"Experiment status summary: {status_counts}")
+    log.info(f"Returning results for {len(rows)}/{len(experiments)} completed experiments.")
+
+    if rows:
+        return pd.DataFrame(rows)
+    return pd.DataFrame()
