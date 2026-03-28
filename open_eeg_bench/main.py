@@ -38,6 +38,7 @@ def benchmark(
     finetuning_strategies: list[str] | None = None,
     n_seeds: int = 3,
     infra: dict[str, Any] | None = None,
+    max_workers: int = 256,
     only_return_configs: bool = False,
 ) -> "pd.DataFrame"|list[Experiment]:
     """Benchmark an EEG model on multiple datasets and finetuning strategies.
@@ -89,6 +90,9 @@ def benchmark(
 
             {"folder": "./results"}                     # local, cached
             {"folder": "./results", "cluster": "slurm"} # SLURM submission
+    max_workers : int
+        Maximum number of SLURM jobs running at the same time (maps to
+        ``--array=...%max_workers``). Only effective with ``cluster="slurm"``.
     only_return_configs : bool
         If ``True``, returns the list of experiment configs instead of running them.
         You can later run the experiments with ``open_eeg_bench.experiment.run_many()``.
@@ -157,4 +161,4 @@ def benchmark(
     if only_return_configs:
         return experiments
 
-    return run_many(experiments)
+    return run_many(experiments, max_workers=max_workers)
