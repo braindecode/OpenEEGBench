@@ -198,25 +198,23 @@ class Experiment(BaseModel):
         # 8. Test
         # ===============================================================
         results = {"adapter_stats": adapter_stats}
-        if test_set is not None:
-            y_pred = learner.predict(test_set)
-            y_true = np.array([test_set[i][1] for i in range(len(test_set))])
-            if is_regression:
-                from sklearn.metrics import r2_score
+        y_pred = learner.predict(test_set)
+        y_true = np.array([test_set[i][1] for i in range(len(test_set))])
+        is_regression = self.dataset.n_classes is None
+        if is_regression:
+            from sklearn.metrics import r2_score
 
-                results["test_r2"] = float(r2_score(y_true, y_pred.ravel()))
-                log.info("Test R²: %.4f", results["test_r2"])
-            else:
-                from sklearn.metrics import balanced_accuracy_score
-
-                results["test_balanced_accuracy"] = balanced_accuracy_score(
-                    y_true, y_pred
-                )
-                log.info(
-                    "Test balanced accuracy: %.4f", results["test_balanced_accuracy"]
-                )
+            results["test_r2"] = float(r2_score(y_true, y_pred.ravel()))
+            log.info("Test R²: %.4f", results["test_r2"])
         else:
-            log.info("No test set configured.")
+            from sklearn.metrics import balanced_accuracy_score
+
+            results["test_balanced_accuracy"] = balanced_accuracy_score(
+                y_true, y_pred
+            )
+            log.info(
+                "Test balanced accuracy: %.4f", results["test_balanced_accuracy"]
+            )
 
         return results
 
