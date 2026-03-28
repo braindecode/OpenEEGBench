@@ -72,14 +72,7 @@ class Experiment(BaseModel):
             )
         return self
 
-    @infra.apply(
-        exclude_from_cache_uid=(
-            "training.device",
-            "training.batch_size",
-            "dataset.batch_size",
-            "dataset.num_workers",
-        ),
-    )
+    @infra.apply()
     def run(self) -> dict:
         """Execute the full training pipeline.
 
@@ -101,17 +94,21 @@ class Experiment(BaseModel):
         # Handle CUDA determinism carefully
         try:
             import multiprocessing
+
             # Check if we are in a worker process
-            is_worker = "LokyProcess" in multiprocessing.current_process().name or "SpawnPoolWorker" in multiprocessing.current_process().name
+            is_worker = (
+                "LokyProcess" in multiprocessing.current_process().name
+                or "SpawnPoolWorker" in multiprocessing.current_process().name
+            )
             # Use environment heuristic or process name
             if torch.cuda.is_available():
-                 # Only set CUDA seeds if we are in a worker or explicit single-run
-                 torch.cuda.manual_seed(self.seed)
-                 torch.cuda.manual_seed_all(self.seed)
+                # Only set CUDA seeds if we are in a worker or explicit single-run
+                torch.cuda.manual_seed(self.seed)
+                torch.cuda.manual_seed_all(self.seed)
 
-                 if hasattr(torch.backends, "cudnn"):
-                      torch.backends.cudnn.benchmark = False
-                      torch.backends.cudnn.deterministic = True
+                if hasattr(torch.backends, "cudnn"):
+                    torch.backends.cudnn.benchmark = False
+                    torch.backends.cudnn.deterministic = True
         except Exception as e:
             log.warning(f"Skipped CUDA determinism settings: {e}")
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
@@ -160,8 +157,10 @@ class Experiment(BaseModel):
         # ===============================================================
         finetuning = self.finetuning
         if isinstance(finetuning, AdaLoRA) and finetuning.total_step is None:
-            batch_size = self.training.batch_size or self.dataset.batch_size
-            total_step = max(1, len(train_set) // batch_size) * self.training.max_epochs
+            total_step = (
+                max(1, len(train_set) // self.training.batch_size)
+                * self.training.max_epochs
+            )
             updates = {"total_step": total_step}
             # Ensure tinit + tfinal < total_step for the budgeting phase
             if finetuning.tinit + finetuning.tfinal >= total_step:
@@ -169,7 +168,9 @@ class Experiment(BaseModel):
                 updates["tfinal"] = total_step // 2
             finetuning = finetuning.model_copy(update=updates)
             log.info("AdaLoRA: auto-computed total_step=%d", total_step)
+
         model, adapter_stats = finetuning.apply(model, backbone_obj)
+
         log.info(
             "Finetuning: %s — %s/%s params (%.1f%%)",
             adapter_stats["method"],
@@ -179,43 +180,19 @@ class Experiment(BaseModel):
         )
 
         # ===============================================================
-        # 6. Build skorch callbacks
+        # 6. Get skorch callbacks from the finetuning
         # ===============================================================
-        is_regression = self.dataset.n_classes is None
-        callbacks = self._build_callbacks(regression=is_regression)
-        callbacks.extend(self.finetuning.get_callbacks())
+        callbacks = self.finetuning.get_callbacks()
 
         # ===============================================================
         # 7. Create learner and train
         # ===============================================================
-        batch_size = self.training.batch_size or self.dataset.batch_size
-        common_kwargs = dict(
-            module=model,
-            optimizer=torch.optim.AdamW,
-            optimizer__lr=self.training.lr,
-            optimizer__weight_decay=self.training.weight_decay,
-            max_epochs=self.training.max_epochs,
-            batch_size=batch_size,
-            device=self.training.device,
+        learner = self.training.build_learner(
+            model=model,
             callbacks=callbacks,
-            train_split=None,
-            verbose=1,
-            iterator_train__num_workers=self.dataset.num_workers,
-            iterator_valid__num_workers=self.dataset.num_workers,
+            n_classes=self.dataset.n_classes,
+            val_set=val_set,
         )
-
-        if is_regression:
-            from braindecode import EEGRegressor
-            learner = EEGRegressor(criterion=nn.MSELoss, **common_kwargs)
-        else:
-            from braindecode import EEGClassifier
-            classes = list(range(info["n_outputs"])) if self.dataset.n_classes else None
-            learner = EEGClassifier(
-                criterion=nn.CrossEntropyLoss, classes=classes, **common_kwargs,
-            )
-
-        from skorch.helper import predefined_split
-        learner.train_split = predefined_split(val_set)
         learner.fit(train_set, y=None)
 
         # ===============================================================
@@ -227,12 +204,18 @@ class Experiment(BaseModel):
             y_true = np.array([test_set[i][1] for i in range(len(test_set))])
             if is_regression:
                 from sklearn.metrics import r2_score
+
                 results["test_r2"] = float(r2_score(y_true, y_pred.ravel()))
                 log.info("Test R²: %.4f", results["test_r2"])
             else:
                 from sklearn.metrics import balanced_accuracy_score
-                results["test_balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
-                log.info("Test balanced accuracy: %.4f", results["test_balanced_accuracy"])
+
+                results["test_balanced_accuracy"] = balanced_accuracy_score(
+                    y_true, y_pred
+                )
+                log.info(
+                    "Test balanced accuracy: %.4f", results["test_balanced_accuracy"]
+                )
         else:
             log.info("No test set configured.")
 
@@ -257,57 +240,7 @@ class Experiment(BaseModel):
             model.train()
         log.info("Initialized lazy modules with dummy forward pass")
 
-    def _build_callbacks(self, regression: bool = False) -> list:
-        """Build skorch callbacks from training config."""
-        from skorch.callbacks import (
-            EarlyStopping as SkorchEarlyStopping,
-            EpochScoring,
-            GradientNormClipping,
-            LRScheduler,
-        )
 
-        cbs = []
-
-        # Scoring
-        scoring = "r2" if regression else "balanced_accuracy"
-        cbs.append(
-            EpochScoring(scoring, name="valid_score", lower_is_better=False, on_train=False)
-        )
-        cbs.append(
-            EpochScoring(scoring, name="train_score", lower_is_better=False, on_train=True)
-        )
-
-        # Early stopping
-        es = self.training.early_stopping
-        if es.enabled:
-            cbs.append(
-                SkorchEarlyStopping(
-                    monitor=es.monitor,
-                    patience=es.patience,
-                    lower_is_better=es.lower_is_better,
-                )
-            )
-
-        # Gradient clipping
-        if self.training.gradient_clip_val is not None:
-            cbs.append(
-                GradientNormClipping(
-                    gradient_clip_value=self.training.gradient_clip_val
-                )
-            )
-
-        # LR scheduler
-        if self.training.use_scheduler:
-            import torch
-            cbs.append(
-                LRScheduler(
-                    policy=torch.optim.lr_scheduler.CosineAnnealingLR,
-                    T_max=self.training.max_epochs,
-                    eta_min=self.training.scheduler_eta_min,
-                )
-            )
-
-        return cbs
 
 
 def run_many(experiments: Sequence[Experiment]) -> "pd.DataFrame":

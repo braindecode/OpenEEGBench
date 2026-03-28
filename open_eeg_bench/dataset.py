@@ -168,8 +168,6 @@ class Dataset(BaseModel):
     hf_id: str = Field(description="HuggingFace Hub dataset ID, e.g. 'braindecode/bcic2a'.")
     n_classes: int | None = Field(description="Number of classes (None for regression).")
     splitter: Splitter
-    batch_size: int = 64
-    num_workers: int = 0
 
     def load(self):
         """Pull windowed dataset from HuggingFace Hub."""
