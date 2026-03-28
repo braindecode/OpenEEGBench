@@ -84,7 +84,6 @@ class Experiment(BaseModel):
         import os
         import numpy as np
         import torch
-        import torch.nn as nn
 
         # ===============================================================
         # 0. Seed EVERYTHING for reproducibility

@@ -15,7 +15,7 @@ if TYPE_CHECKING:
     import pandas as pd
     from torch import nn
 
-from open_eeg_bench.experiment import Experiment, run_many
+from open_eeg_bench.experiment import run_many, Experiment
 from open_eeg_bench.default_configs.experiments import make_all_experiments
 from open_eeg_bench.backbone import PretrainedBackbone
 
@@ -38,7 +38,8 @@ def benchmark(
     finetuning_strategies: list[str] | None = None,
     n_seeds: int = 3,
     infra: dict[str, Any] | None = None,
-) -> "pd.DataFrame":
+    only_return_configs: bool = False,
+) -> "pd.DataFrame"|list[Experiment]:
     """Benchmark an EEG model on multiple datasets and finetuning strategies.
 
     This is the main entry point for evaluating a new model. All config
@@ -88,13 +89,17 @@ def benchmark(
 
             {"folder": "./results"}                     # local, cached
             {"folder": "./results", "cluster": "slurm"} # SLURM submission
+    only_return_configs : bool
+        If ``True``, returns the list of experiment configs instead of running them.
+        You can later run the experiments with ``open_eeg_bench.experiment.run_many()``.
 
     Returns
     -------
-    pd.DataFrame
+    pd.DataFrame | list[Experiment]
         Results with one row per (dataset, finetuning) combination.
         Columns include the test metric (``test_balanced_accuracy`` or
         ``test_r2``), adapter statistics, and ``error`` if the run failed.
+        If ``only_return_configs=True``, returns the list of experiment configs instead.
 
     Examples
     --------
@@ -117,6 +122,11 @@ def benchmark(
             finetuning_strategies=["frozen", "lora"],
         )
     """
+    if not isinstance(model_cls, str):
+        # Convert class to its dotted import path string:
+        model_cls = f"{model_cls.__module__}.{model_cls.__name__}"
+
+    # Create the backbone config with the provided model
     backbone = PretrainedBackbone(
         model_cls=model_cls,
         hub_repo=hub_repo,
@@ -129,6 +139,7 @@ def benchmark(
         normalization=normalization,
     )
 
+    # Create all experiment configs (dataset x head x finetuning x seed combinations)
     experiments = make_all_experiments(
         datasets=datasets,
         heads=heads,
@@ -136,10 +147,14 @@ def benchmark(
         n_seeds=n_seeds,
     )
 
-    update = {"backbone": backbone}
+    # Replace the placeholder backbone with our actual backbone in each experiment
+    # Same for the infra config if provided
+    overrides = {"backbone": backbone}
     if infra is not None:
-        update["infra"] = infra
-    experiments = [exp.model_copy(update=update) for exp in experiments]
-    experiments = [Experiment.model_validate(exp) for exp in experiments]
+        overrides.update({"infra": infra})
+    experiments = [exp.infra.clone_obj(overrides) for exp in experiments]
+
+    if only_return_configs:
+        return experiments
 
     return run_many(experiments)
