@@ -39,6 +39,7 @@ def benchmark(
     n_seeds: int = 3,
     infra: dict[str, Any] | None = None,
     max_workers: int = 256,
+    device: str = "cpu",
     only_return_configs: bool = False,
 ) -> "pd.DataFrame"|list[Experiment]:
     """Benchmark an EEG model on multiple datasets and finetuning strategies.
@@ -93,6 +94,9 @@ def benchmark(
     max_workers : int
         Maximum number of SLURM jobs running at the same time (maps to
         ``--array=...%max_workers``). Only effective with ``cluster="slurm"``.
+    device : str
+        Device to run the experiments on (e.g. ``"cuda"`` or ``"cpu"``). 
+        Passed to the training config.
     only_return_configs : bool
         If ``True``, returns the list of experiment configs instead of running them.
         You can later run the experiments with ``open_eeg_bench.experiment.run_many()``.
@@ -153,7 +157,7 @@ def benchmark(
 
     # Replace the placeholder backbone with our actual backbone in each experiment
     # Same for the infra config if provided
-    overrides = {"backbone": backbone}
+    overrides = {"backbone": backbone, "training": {"device": device}}
     if infra is not None:
         overrides.update({"infra": infra})
     experiments = [exp.infra.clone_obj(overrides) for exp in experiments]
