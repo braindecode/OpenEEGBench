@@ -135,7 +135,7 @@ class Experiment(BaseModel):
         )
 
         # ===============================================================
-        # 2. Build model
+        # 2. Build model (and load pretrained weights)
         # ===============================================================
         model = backbone_obj.build(
             n_chans=info["n_chans"],
@@ -146,22 +146,17 @@ class Experiment(BaseModel):
         )
 
         # ===============================================================
-        # 3. Load pretrained weights
-        # ===============================================================
-        backbone_obj.load_pretrained(model)
-
-        # ===============================================================
-        # 4. Apply head
+        # 3. Apply head
         # ===============================================================
         self.head.apply(model, info["n_outputs"], backbone_obj.head_module_name)
 
         # ===============================================================
-        # 5. Initialize lazy modules with a dummy forward pass
+        # 4. Initialize lazy modules with a dummy forward pass
         # ===============================================================
         self._initialize_lazy_modules(model, info)
 
         # ===============================================================
-        # 6. Apply finetuning
+        # 5. Apply finetuning
         # ===============================================================
         finetuning = self.finetuning
         if isinstance(finetuning, AdaLoRA) and finetuning.total_step is None:
@@ -184,14 +179,14 @@ class Experiment(BaseModel):
         )
 
         # ===============================================================
-        # 7. Build skorch callbacks
+        # 6. Build skorch callbacks
         # ===============================================================
         is_regression = self.dataset.n_classes is None
         callbacks = self._build_callbacks(regression=is_regression)
         callbacks.extend(self.finetuning.get_callbacks())
 
         # ===============================================================
-        # 8. Create learner and train
+        # 7. Create learner and train
         # ===============================================================
         batch_size = self.training.batch_size or self.dataset.batch_size
         common_kwargs = dict(
@@ -224,7 +219,7 @@ class Experiment(BaseModel):
         learner.fit(train_set, y=None)
 
         # ===============================================================
-        # 9. Test
+        # 8. Test
         # ===============================================================
         results = {"adapter_stats": adapter_stats}
         if test_set is not None:

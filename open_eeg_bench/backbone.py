@@ -12,15 +12,10 @@ Default configurations for each supported architecture live in
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Any, Literal, Union
-
+from typing import Any, Literal
 from importlib import import_module
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
-
-if TYPE_CHECKING:
-    import torch
-    import torch.nn as nn
 
 from open_eeg_bench.normalization import Normalization
 
@@ -125,7 +120,9 @@ class PretrainedBackbone(_BackboneBase):
             sfreq=sfreq,
             chs_info=chs_info,
         )
-        return cls(**kwargs)
+        model = cls(**kwargs)
+        self.load_pretrained(model)
+        return model
 
     @model_validator(mode="after")
     def check_pretrained_fields(self):
@@ -143,7 +140,11 @@ class PretrainedBackbone(_BackboneBase):
 
     def load_pretrained(self, model) -> None:
         """Load pretrained weights into the model."""
-        if self.hub_repo is None and self.checkpoint_url is None and self.checkpoint_path is None:
+        if (
+            self.hub_repo is None
+            and self.checkpoint_url is None
+            and self.checkpoint_path is None
+        ):
             return
 
         import torch
@@ -210,4 +211,3 @@ class PlaceholderBackbone(_BackboneBase):
 
     kind: Literal["placeholder"] = "placeholder"
     peft_target_modules: list[str] = []
-
