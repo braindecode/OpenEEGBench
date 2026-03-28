@@ -61,7 +61,7 @@ Experiment
 ├── head ─────────── LinearHead / MLPHead / OriginalHead
 ├── finetuning ───── LoRA / IA3 / Frozen / FullFinetune / ...
 ├── dataset ──────── HF dataset ID + Splitter
-│   └── splitter ──── RandomSplitter / CrossSubjectSplitter / PredefinedSplitter
+│   └── splitter ──── PredefinedSplitter
 └── training ─────── epochs, lr, early stopping, wandb, ...
 ```
 
@@ -109,3 +109,9 @@ Key rules:
 - Input shape: `(batch, n_chans, n_times)`
 
 See the [braindecode contributing guide](https://github.com/braindecode/braindecode/blob/master/CONTRIBUTING.md#adding-a-model-to-braindecode) for the full specification.
+
+---
+
+## Running on a cluster
+
+Both `benchmark()` and `Experiment` support SLURM submission via the `infra` parameter — no `sbatch` scripts needed. See [Running on a cluster](cluster.md) for the full guide on `infra` options, caching, and execution modes.
