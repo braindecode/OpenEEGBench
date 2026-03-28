@@ -287,6 +287,10 @@ def run_many(
         status_counts[status] = status_counts.get(status, 0) + 1
         if status == "completed":
             result = exp.run()
+            result["dataset"] = exp.dataset.hf_id
+            result["finetuning"] = exp.finetuning.kind
+            result["head"] = exp.head.kind
+            result["seed"] = exp.seed
             rows.append(result)
         else:
             log.info(
