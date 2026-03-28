@@ -26,72 +26,6 @@ log = logging.getLogger(__name__)
 # ============================================================================
 
 
-class RandomSplitter(BaseModel):
-    """Random train / validation / test split."""
-
-    model_config = ConfigDict(extra="forbid")
-    kind: Literal["random"] = "random"
-    val_split: float = 0.2
-    test_split: float = 0.0
-    stratify: bool = True
-    seed: int = 42
-
-    def split(self, dataset, metadata):
-        from sklearn.model_selection import train_test_split
-        from torch.utils.data import Subset
-
-        indices = list(range(len(dataset)))
-        stratify_col = metadata["target"].values if self.stratify and "target" in metadata.columns else None
-
-        test_ds = None
-        trainval_idx = indices
-        if self.test_split > 0:
-            trainval_idx, test_idx = train_test_split(
-                indices, test_size=self.test_split, random_state=self.seed, stratify=stratify_col,
-            )
-            test_ds = Subset(dataset, test_idx)
-            stratify_col = metadata.loc[trainval_idx, "target"].values if stratify_col is not None else None
-
-        train_idx, val_idx = train_test_split(
-            trainval_idx, test_size=self.val_split / (1 - self.test_split) if self.test_split > 0 else self.val_split,
-            random_state=self.seed, stratify=stratify_col,
-        )
-        return Subset(dataset, train_idx), Subset(dataset, val_idx), test_ds
-
-
-class CrossSubjectSplitter(BaseModel):
-    """Leave-subjects-out cross-validation split."""
-
-    model_config = ConfigDict(extra="forbid")
-    kind: Literal["cross_subject"] = "cross_subject"
-    fold: int = 0
-    n_folds: int = 5
-    val_split: float = 0.2
-    stratify: bool = True
-    seed: int = 42
-
-    def split(self, dataset, metadata):
-        import numpy as np
-        from moabb.evaluations.splitters import CrossSubjectSplitter as _CSS
-        from sklearn.model_selection import StratifiedGroupKFold, GroupKFold, train_test_split
-        from torch.utils.data import Subset
-
-        y = metadata["target"].values if "target" in metadata.columns else np.zeros(len(metadata))
-        cv_class = StratifiedGroupKFold if self.stratify else GroupKFold
-        splitter = _CSS(n_splits=self.n_folds, cv_class=cv_class)
-        splits = list(splitter.split(y, metadata))
-
-        if self.fold >= len(splits):
-            raise ValueError(f"fold {self.fold} >= n_splits {len(splits)}")
-
-        train_idx, test_idx = splits[self.fold]
-        test_ds = Subset(dataset, list(test_idx))
-
-        strat = metadata.loc[train_idx, "target"].values if self.stratify and "target" in metadata.columns else None
-        tr, va = train_test_split(list(train_idx), test_size=self.val_split, random_state=self.seed, stratify=strat)
-        return Subset(dataset, tr), Subset(dataset, va), test_ds
-
-
 class PredefinedSplitter(BaseModel):
     """Split by predefined metadata values (e.g. subject IDs).
 
@@ -111,9 +45,7 @@ class PredefinedSplitter(BaseModel):
     @model_validator(mode="after")
     def check_val_source(self):
         if (self.val_values is not None) == (self.val_size is not None):
-            raise ValueError(
-                "Exactly one of val_values or val_size must be provided."
-            )
+            raise ValueError("Exactly one of val_values or val_size must be provided.")
         return self
 
     def split(self, dataset, metadata):
@@ -132,7 +64,8 @@ class PredefinedSplitter(BaseModel):
             val_idx = _indices(self.val_values)
         else:
             from sklearn.model_selection import GroupShuffleSplit
-            subjects = metadata['subject'].values
+
+            subjects = metadata["subject"].values
             gss = GroupShuffleSplit(
                 n_splits=1,
                 test_size=self.val_size,
@@ -165,8 +98,12 @@ class Dataset(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    hf_id: str = Field(description="HuggingFace Hub dataset ID, e.g. 'braindecode/bcic2a'.")
-    n_classes: int | None = Field(description="Number of classes (None for regression).")
+    hf_id: str = Field(
+        description="HuggingFace Hub dataset ID, e.g. 'braindecode/bcic2a'."
+    )
+    n_classes: int | None = Field(
+        description="Number of classes (None for regression)."
+    )
     splitter: Splitter
 
     def load(self):
@@ -197,6 +134,7 @@ class Dataset(BaseModel):
                         if old_transform is not None:
                             x = old_transform(x)
                         return x
+
                     return transform
 
                 ds.transform = _make_norm_transform(normalization, existing)
@@ -205,7 +143,11 @@ class Dataset(BaseModel):
         sample_x, sample_y, _ = windows[0]
         n_times = sample_x.shape[-1]
         ds0 = windows.datasets[0]
-        mne_info = ds0.raw.info if hasattr(ds0, "raw") and ds0.raw is not None else ds0.windows.info
+        mne_info = (
+            ds0.raw.info
+            if hasattr(ds0, "raw") and ds0.raw is not None
+            else ds0.windows.info
+        )
         sfreq = mne_info["sfreq"]
         chs_info = mne_info["chs"]
         n_chans = len(chs_info)
