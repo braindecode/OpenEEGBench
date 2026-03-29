@@ -57,7 +57,7 @@ def make_all_experiments(
     for seed, head_name, finetuning_name, dataset_name in product(
         seeds, heads, finetuning_strategies, datasets
     ):
-        exp = Experiment.model_construct(
+        exp = Experiment(
             training=default_training(),
             head=ALL_HEADS[head_name](),
             finetuning=ALL_FINETUNING[finetuning_name](),

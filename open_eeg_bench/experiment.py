@@ -55,15 +55,6 @@ class Experiment(BaseModel):
     _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("infra",)
 
     @model_validator(mode="after")
-    def _check_not_placeholder(self):
-        if isinstance(self.backbone, PlaceholderBackbone):
-            raise ValueError(
-                "PlaceholderBackbone cannot be used to run an experiment. "
-                "Replace it with a concrete backbone (e.g. PretrainedBackbone)."
-            )
-        return self
-
-    @model_validator(mode="after")
     def _check_frozen_needs_new_head(self):
         if isinstance(self.finetuning, Frozen) and isinstance(self.head, OriginalHead):
             raise ValueError(
