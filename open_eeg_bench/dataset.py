@@ -83,7 +83,7 @@ class PredefinedSplitter(BaseModel):
 
 
 Splitter = Annotated[
-    Union[RandomSplitter, CrossSubjectSplitter, PredefinedSplitter],
+    Union[PredefinedSplitter],
     Field(discriminator="kind"),
 ]
 
@@ -104,7 +104,7 @@ class Dataset(BaseModel):
     n_classes: int | None = Field(
         description="Number of classes (None for regression)."
     )
-    splitter: Splitter
+    splitter: PredefinedSplitter
 
     def load(self):
         """Pull windowed dataset from HuggingFace Hub."""
