@@ -1,8 +1,11 @@
 from pathlib import Path
 import time
 from typing import TYPE_CHECKING
+import os
+import contextlib
 
 from exca.helpers import with_infra
+import submitit.helpers
 
 if TYPE_CHECKING:
     import pandas as pd
@@ -10,21 +13,21 @@ if TYPE_CHECKING:
 from open_eeg_bench.experiment import Experiment, collect_completed_results
 
 
-# @with_infra(
-#     folder=Path("~/.cache/exca/"),
-#     cluster="slurm",
-#     mode="force",
-#     slurm_partition="shared",
-#     slurm_account="csd403",
-#     job_name="experiment_controller",
-#     nodes=1,
-#     cpus_per_task=1,
-#     mem_gb=4,
-#     timeout_min=60 * 24,
-#     slurm_additional_parameters={
-#         "qos": "shared-normal",
-#     },
-# )
+with_infra(
+    folder=Path("~/.cache/exca/").expanduser(),
+    cluster="slurm",
+    mode="force",
+    slurm_partition="shared",
+    slurm_account="csd403",
+    job_name="queue-launcher",
+    nodes=1,
+    cpus_per_task=1,
+    mem_gb=4,
+    timeout_min=60 * 24,
+    slurm_additional_parameters={
+        "qos": "shared-normal",
+    },
+)
 def run_many_with_queue(
     *,
     experiments: list[Experiment],
@@ -43,6 +46,22 @@ def run_many_with_queue(
     sleep_seconds: float
         The number of seconds to sleep between each check of the queue.
     """
+
+    _original_clean_env = submitit.helpers.clean_env
+    # SLURM_CONF = "/cm/shared/apps/slurm/var/etc/expanse/slurm.conf"
+
+
+    @contextlib.contextmanager
+    def _clean_env_preserve_conf(*args, **kwargs):
+        slurm_conf = os.environ.get("SLURM_CONF")
+        with _original_clean_env(*args, **kwargs):
+            if slurm_conf is not None:
+                os.environ["SLURM_CONF"] = slurm_conf
+            yield
+
+
+    submitit.helpers.clean_env = _clean_env_preserve_conf
+
     experiments_to_launch = list(experiments)
     experiments_in_progress: list[Experiment] = []
 
