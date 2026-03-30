@@ -1,4 +1,3 @@
-from pathlib import Path
 import time
 from typing import TYPE_CHECKING
 import os
@@ -6,7 +5,6 @@ import contextlib
 import logging
 
 
-from exca.helpers import with_infra
 import submitit.helpers
 
 if TYPE_CHECKING:
@@ -17,7 +15,7 @@ from open_eeg_bench.experiment import Experiment, collect_completed_results
 log = logging.getLogger(__name__)
 
 
-# @with_infra(
+# @exca.helpers.with_infra(
 #     folder=Path("~/.cache/exca/").expanduser(),
 #     cluster="slurm",
 #     mode="force",
@@ -41,13 +39,13 @@ def run_many_with_queue(
     """Run many experiments with a queue to avoid overloading the cluster scheduler.
     This is useful when you have a large number of experiments to run, but don't want to submit them all at once to the cluster scheduler (e.g., SLURM) to avoid overloading it.
 
-    To launch this function as a SLURM job, you can decorate it 
+    To launch this function as a SLURM job, you can decorate it
     with exca's helper:
-    
+
     ```python
     with_infra(cluster="slurm", ...)(run_many_with_queue)(experiments=all_experiments)
     ```
-    
+
     Parameters
     ----------
     experiments: list[Experiment]
@@ -74,6 +72,9 @@ def run_many_with_queue(
     experiments_to_launch = list(experiments)
     experiments_in_progress = []
 
+    n_total = len(experiments)
+    n_finished = 0
+    n_launched = 0
     while experiments_to_launch:
 
         # empty the queue:
@@ -84,7 +85,8 @@ def run_many_with_queue(
             if status not in ["completed", "failed"]:
                 still_in_progress.append((exp, job))
             else:
-                log.info("Job %s finished with status %s", job, status)
+                n_finished += 1
+                print(f"{n_finished}/{n_total} jobs finished: {job} (status {status})")
         experiments_in_progress = still_in_progress
 
         # fill-up the queue
@@ -92,6 +94,8 @@ def run_many_with_queue(
             exp = experiments_to_launch.pop(0)
             job = exp.infra.job()  # non-blocking launch
             experiments_in_progress.append((exp, job))
+            n_launched += 1
+            print(f"{n_launched}/{n_total} jobs launched: {job}")
 
         time.sleep(sleep_seconds)
 
