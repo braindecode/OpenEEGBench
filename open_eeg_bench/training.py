@@ -80,7 +80,6 @@ class Training(BaseModel):
 
     max_epochs: int = 50
     lr: float = 5e-4
-    weight_decay: float = 0.01
     gradient_clip_val: float | None = 1.0
     batch_size: int = 64
     num_workers: int = 0
@@ -161,7 +160,6 @@ class Training(BaseModel):
             module=model,
             optimizer=AdamW,
             optimizer__lr=self.lr,
-            optimizer__weight_decay=self.weight_decay,
             train_split=predefined_split(val_set),
             max_epochs=self.max_epochs,
             batch_size=self.batch_size,

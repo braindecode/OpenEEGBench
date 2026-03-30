@@ -25,7 +25,6 @@ dataset = arithmetic_zyma2019()
 training = Training(
     max_epochs=30,
     lr=1e-3,
-    weight_decay=0.0,
     device="cpu",
     early_stopping=EarlyStopping(patience=10, monitor="valid_loss"),
 )
