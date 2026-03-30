@@ -13,9 +13,8 @@
 ## 🚀 Installation
 
 ```bash
-# Requires uv (https://docs.astral.sh/uv/)
-uv venv .venv --python 3.12
-source .venv/bin/activate
+conda create -n open-eeg-bench python=3.12 uv -y
+conda activate open-eeg-bench
 uv pip install -e ".[dev]"
 ```
 
@@ -112,6 +111,7 @@ All 12 datasets are pre-windowed and hosted on [HuggingFace Hub](https://hugging
 | `DoRA(r, alpha)` | Weight-Decomposed LoRA | ~1-5% |
 | `OFT(block_size)` | Orthogonal Fine-Tuning | ~1-10% |
 | `FullFinetune()` | Train all parameters | 100% |
+| `TwoStages()` | Frozen head for 10 epochs, then unfreeze and train all | 100% |
 
 ## 📄 License
 
