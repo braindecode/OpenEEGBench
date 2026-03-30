@@ -239,6 +239,8 @@ def collect_completed_results(experiments: Sequence[Experiment]) -> "pd.DataFram
             result["finetuning"] = exp.finetuning.kind
             result["head"] = exp.head.kind
             result["seed"] = exp.seed
+            if isinstance((backbone := exp.backbone), PretrainedBackbone):
+                result["backbone"] = backbone.model_cls.split(".")[-1]
             rows.append(result)
         else:
             log.info(
