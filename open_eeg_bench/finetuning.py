@@ -277,8 +277,8 @@ class FullFinetune(BaseModel):
 class Frozen(BaseModel):
     """Freeze the encoder, train only the head.
 
-    Returns a skorch ``Freezer`` callback that freezes all parameters
-    whose name does *not* contain the head module name.
+    Returns a model in which all parameters
+    whose name does *not* contain the head module name are frozen.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -295,7 +295,39 @@ class Frozen(BaseModel):
         return []
 
 
+class TwoStages(BaseModel):
+    """Two-stage training: frozen backbone for N epochs, then unfreeze and train all.
+
+    Returns a model in which all parameters
+    whose name does *not* contain the head module name are frozen.
+    After N epochs, an Unfreezer callback will unfreeze the whole model for the rest of training.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["two_stages"] = "two_stages"
+    n_epochs_frozen: int = 5
+
+    def apply(self, model, backbone):
+        head_name = backbone.head_module_name
+        for name, param in model.named_parameters():
+            if head_name not in name:
+                param.requires_grad = False
+        return model, {**_param_stats(model), "method": "frozen"}
+
+    def get_callbacks(self) -> list:
+        from skorch.callbacks import ParamMapper
+        from skorch.utils import unfreeze_parameter
+
+        return [
+            ParamMapper(
+                patterns="*",  # apply to all parameters
+                at=self.n_epochs_frozen + 1,
+                fn=unfreeze_parameter,
+            )
+        ]
+
+
 Finetuning = Annotated[
-    Union[LoRA, IA3, AdaLoRA, DoRA, OFT, FullFinetune, Frozen],
+    Union[LoRA, IA3, AdaLoRA, DoRA, OFT, FullFinetune, Frozen, TwoStages],
     Field(discriminator="kind"),
 ]

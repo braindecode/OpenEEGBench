@@ -33,7 +33,7 @@ Every experiment is defined by **4 independent axes** that you can freely combin
 |------|-----------------|---------|
 | **Backbone** | The pretrained EEG encoder | BIOT, LaBraM, BENDR, CBraMod, SignalJEPA, REVE, *or your own model* |
 | **Head** | The classification/regression layer | `LinearHead`, `MLPHead`, `OriginalHead` |
-| **Finetuning** | What gets trained and how | `Frozen`, `FullFinetune`, `LoRA`, `IA3`, `AdaLoRA`, `DoRA`, `OFT` |
+| **Finetuning** | What gets trained and how | `Frozen`, `FullFinetune`, `LoRA`, `IA3`, `AdaLoRA`, `DoRA`, `OFT`, `TwoStages` |
 | **Dataset** | The downstream evaluation task | Any pre-windowed dataset on HuggingFace Hub |
 
 The `Experiment` class composes them and runs the full pipeline:

@@ -8,6 +8,7 @@ from open_eeg_bench.finetuning import (
     IA3,
     LoRA,
     OFT,
+    TwoStages,
 )
 
 ALL_FINETUNING = {
@@ -18,6 +19,7 @@ ALL_FINETUNING = {
     "oft": OFT,
     "full_finetune": FullFinetune,
     "frozen": Frozen,
+    'two_stages': TwoStages,
 }
 
 from open_eeg_bench.head import LinearHead, MLPHead, OriginalHead

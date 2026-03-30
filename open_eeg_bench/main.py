@@ -79,7 +79,7 @@ def benchmark(
         Finetuning strategy names. If ``None``, uses ``["frozen"]``
         (linear probing). Valid names: ``"frozen"``, ``"lora"``,
         ``"ia3"``, ``"adalora"``, ``"dora"``, ``"oft"``,
-        ``"full_finetune"``.
+        ``"full_finetune"``, ``"two_stages"``.
     heads : list[str], optional
         Head names to evaluate. If ``None``, uses ``["linear_head"]``.
         Valid names: ``"linear_head"``, ``"mlp_head"``, ``"original_head"``.
