@@ -200,12 +200,8 @@ class Experiment(BaseModel):
         else:
             from sklearn.metrics import balanced_accuracy_score
 
-            results["test_balanced_accuracy"] = balanced_accuracy_score(
-                y_true, y_pred
-            )
-            log.info(
-                "Test balanced accuracy: %.4f", results["test_balanced_accuracy"]
-            )
+            results["test_balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
+            log.info("Test balanced accuracy: %.4f", results["test_balanced_accuracy"])
 
         return results
 
@@ -227,6 +223,36 @@ class Experiment(BaseModel):
             model(dummy)
             model.train()
         log.info("Initialized lazy modules with dummy forward pass")
+
+
+def collect_completed_results(experiments: Sequence[Experiment]) -> "pd.DataFrame":
+    import pandas as pd
+
+    rows = []
+    status_counts = {}
+    for exp in experiments:
+        status = exp.infra.status()
+        status_counts[status] = status_counts.get(status, 0) + 1
+        if status == "completed":
+            result = exp.run()
+            result["dataset"] = exp.dataset.hf_id
+            result["finetuning"] = exp.finetuning.kind
+            result["head"] = exp.head.kind
+            result["seed"] = exp.seed
+            rows.append(result)
+        else:
+            log.info(
+                f"Experiment {exp.infra.uid()} has status '{status}', skipping result collection."
+            )
+    # Print summary of job statuses:
+    log.info(f"Experiment status summary: {status_counts}")
+    log.info(
+        f"Returning results for {len(rows)}/{len(experiments)} completed experiments."
+    )
+
+    if rows:
+        return pd.DataFrame(rows)
+    return pd.DataFrame()
 
 
 def run_many(
@@ -259,9 +285,9 @@ def run_many(
     pd.DataFrame
         One row per experiment with flattened result columns.
     """
-    import pandas as pd
-
     if not experiments:
+        import pandas as pd
+
         return pd.DataFrame()
 
     first = experiments[0]
@@ -270,27 +296,4 @@ def run_many(
     with first.infra.job_array(max_workers=max_workers) as array:
         array.extend(experiments)
 
-    # Collect results of the completed jobs
-    rows = []
-    status_counts = {}
-    for exp in experiments:
-        status = exp.infra.status()
-        status_counts[status] = status_counts.get(status, 0) + 1
-        if status == "completed":
-            result = exp.run()
-            result["dataset"] = exp.dataset.hf_id
-            result["finetuning"] = exp.finetuning.kind
-            result["head"] = exp.head.kind
-            result["seed"] = exp.seed
-            rows.append(result)
-        else:
-            log.info(
-                f"Experiment {exp.infra.uid()} has status '{status}', skipping result collection."
-            )
-    # Print summary of job statuses:
-    log.info(f"Experiment status summary: {status_counts}")
-    log.info(f"Returning results for {len(rows)}/{len(experiments)} completed experiments.")
-
-    if rows:
-        return pd.DataFrame(rows)
-    return pd.DataFrame()
+    return collect_completed_results(experiments)
