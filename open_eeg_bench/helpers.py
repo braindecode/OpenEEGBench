@@ -3,6 +3,8 @@ import time
 from typing import TYPE_CHECKING
 import os
 import contextlib
+import logging
+
 
 from exca.helpers import with_infra
 import submitit.helpers
@@ -12,22 +14,24 @@ if TYPE_CHECKING:
 
 from open_eeg_bench.experiment import Experiment, collect_completed_results
 
+log = logging.getLogger(__name__)
 
-with_infra(
-    folder=Path("~/.cache/exca/").expanduser(),
-    cluster="slurm",
-    mode="force",
-    slurm_partition="shared",
-    slurm_account="csd403",
-    job_name="queue-launcher",
-    nodes=1,
-    cpus_per_task=1,
-    mem_gb=4,
-    timeout_min=60 * 24,
-    slurm_additional_parameters={
-        "qos": "shared-normal",
-    },
-)
+
+# @with_infra(
+#     folder=Path("~/.cache/exca/").expanduser(),
+#     cluster="slurm",
+#     mode="force",
+#     slurm_partition="shared",
+#     slurm_account="csd403",
+#     job_name="queue-launcher",
+#     nodes=1,
+#     cpus_per_task=1,
+#     mem_gb=4,
+#     timeout_min=60 * 24,
+#     slurm_additional_parameters={
+#         "qos": "shared-normal",
+#     },
+# )
 def run_many_with_queue(
     *,
     experiments: list[Experiment],
@@ -37,6 +41,13 @@ def run_many_with_queue(
     """Run many experiments with a queue to avoid overloading the cluster scheduler.
     This is useful when you have a large number of experiments to run, but don't want to submit them all at once to the cluster scheduler (e.g., SLURM) to avoid overloading it.
 
+    To launch this function as a SLURM job, you can decorate it 
+    with exca's helper:
+    
+    ```python
+    with_infra(cluster="slurm", ...)(run_many_with_queue)(experiments=all_experiments)
+    ```
+    
     Parameters
     ----------
     experiments: list[Experiment]
@@ -50,7 +61,6 @@ def run_many_with_queue(
     _original_clean_env = submitit.helpers.clean_env
     # SLURM_CONF = "/cm/shared/apps/slurm/var/etc/expanse/slurm.conf"
 
-
     @contextlib.contextmanager
     def _clean_env_preserve_conf(*args, **kwargs):
         slurm_conf = os.environ.get("SLURM_CONF")
@@ -59,27 +69,29 @@ def run_many_with_queue(
                 os.environ["SLURM_CONF"] = slurm_conf
             yield
 
-
     submitit.helpers.clean_env = _clean_env_preserve_conf
 
     experiments_to_launch = list(experiments)
-    experiments_in_progress: list[Experiment] = []
+    experiments_in_progress = []
 
     while experiments_to_launch:
 
         # empty the queue:
         # status can be ['not submitted', 'running', 'completed', 'failed']
-        experiments_in_progress = [
-            exp
-            for exp in experiments_in_progress
-            if exp.infra.status() not in ["completed", "failed"]
-        ]
+        still_in_progress = []
+        for exp, job in experiments_in_progress:
+            status = exp.infra.status()
+            if status not in ["completed", "failed"]:
+                still_in_progress.append((exp, job))
+            else:
+                log.info("Job %s finished with status %s", job, status)
+        experiments_in_progress = still_in_progress
 
         # fill-up the queue
         while len(experiments_in_progress) < queue_size and experiments_to_launch:
             exp = experiments_to_launch.pop(0)
-            experiments_in_progress.append(exp)
-            _ = exp.infra.job()  # non-blocking launch
+            job = exp.infra.job()  # non-blocking launch
+            experiments_in_progress.append((exp, job))
 
         time.sleep(sleep_seconds)
 
