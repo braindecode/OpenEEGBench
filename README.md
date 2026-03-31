@@ -115,7 +115,7 @@ All 12 datasets are pre-windowed and hosted on [HuggingFace Hub](https://hugging
 
 ## 📄 License
 
-MIT
+BSD-3-Clause (see [LICENSE.txt](LICENSE.txt))
 
 ## 📚 Further reading
 

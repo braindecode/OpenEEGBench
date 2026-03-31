@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Benchmarking parameter-efficient fine-tuning of EEG foundation models"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "MIT"}
+license = {text = "BSD-3-Clause"}
 
 dependencies = [
     "braindecode @ git+https://github.com/braindecode/braindecode.git",
