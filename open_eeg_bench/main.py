@@ -40,6 +40,7 @@ def benchmark(
     infra: dict[str, Any] | None = None,
     max_workers: int = 256,
     device: str = "cpu",
+    collect_all: bool = True,
     only_return_configs: bool = False,
 ) -> "pd.DataFrame"|list[Experiment]:
     """Benchmark an EEG model on multiple datasets and finetuning strategies.
@@ -97,6 +98,9 @@ def benchmark(
     device : str
         Device to run the experiments on (e.g. ``"cuda"`` or ``"cpu"``). 
         Passed to the training config.
+    collect_all: bool
+        If True, collect results for all experiments regardless of status.
+        If False, only collect results for experiments with status "completed".
     only_return_configs : bool
         If ``True``, returns the list of experiment configs instead of running them.
         You can later run the experiments with ``open_eeg_bench.experiment.run_many()``.
@@ -165,4 +169,4 @@ def benchmark(
     if only_return_configs:
         return experiments
 
-    return run_many(experiments, max_workers=max_workers)
+    return run_many(experiments, max_workers=max_workers, collect_all=collect_all)

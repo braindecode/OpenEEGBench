@@ -299,6 +299,7 @@ def collect_completed_results(
 def run_many(
     experiments: Sequence[Experiment],
     max_workers: int = 256,
+    collect_all: bool = False,
 ) -> "pd.DataFrame":
     """Run a list of experiments with caching and optional cluster submission.
 
@@ -320,6 +321,9 @@ def run_many(
     max_workers : int
         Maximum number of SLURM jobs running at the same time (maps to
         ``--array=...%max_workers``).  Only effective with ``cluster="slurm"``.
+    collect_all: bool
+        If True, collect results for all experiments regardless of status.
+        If False, only collect results for experiments with status "completed".
 
     Returns
     -------
@@ -337,4 +341,4 @@ def run_many(
     with first.infra.job_array(max_workers=max_workers) as array:
         array.extend(experiments)
 
-    return collect_completed_results(experiments)
+    return collect_completed_results(experiments, collect_all=collect_all)
