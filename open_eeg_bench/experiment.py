@@ -198,10 +198,29 @@ class Experiment(BaseModel):
             results["test_r2"] = float(r2_score(y_true, y_pred.ravel()))
             log.info("Test R²: %.4f", results["test_r2"])
         else:
-            from sklearn.metrics import balanced_accuracy_score
+            from sklearn.metrics import (
+                accuracy_score,
+                balanced_accuracy_score,
+                cohen_kappa_score,
+                f1_score,
+                precision_score,
+                recall_score,
+            )
 
-            results["test_balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
-            log.info("Test balanced accuracy: %.4f", results["test_balanced_accuracy"])
+            results["test_balanced_accuracy"] = float(balanced_accuracy_score(y_true, y_pred))
+            results["test_accuracy"] = float(accuracy_score(y_true, y_pred))
+            results["test_f1_macro"] = float(f1_score(y_true, y_pred, average="macro", zero_division=0))
+            results["test_f1_weighted"] = float(f1_score(y_true, y_pred, average="weighted", zero_division=0))
+            results["test_precision_macro"] = float(precision_score(y_true, y_pred, average="macro", zero_division=0))
+            results["test_recall_macro"] = float(recall_score(y_true, y_pred, average="macro", zero_division=0))
+            results["test_cohen_kappa"] = float(cohen_kappa_score(y_true, y_pred))
+            log.info(
+                "Test metrics: bal_acc=%.4f acc=%.4f f1_macro=%.4f kappa=%.4f",
+                results["test_balanced_accuracy"],
+                results["test_accuracy"],
+                results["test_f1_macro"],
+                results["test_cohen_kappa"],
+            )
 
         return results
 

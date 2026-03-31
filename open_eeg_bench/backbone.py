@@ -131,10 +131,10 @@ class PretrainedBackbone(_BackboneBase):
             self.checkpoint_url is not None,
             self.checkpoint_path is not None,
         ]
-        if sum(sources) != 1:
+        if sum(sources) > 1:
             raise ValueError(
-                "Exactly one of hub_repo, checkpoint_url, or checkpoint_path "
-                "must be provided."
+                "At most one of hub_repo, checkpoint_url, or checkpoint_path "
+                "may be provided."
             )
         return self
 

@@ -178,6 +178,26 @@ def reve(**overrides) -> PretrainedBackbone:
     return PretrainedBackbone(**defaults)
 
 
+def eegnet(**overrides) -> PretrainedBackbone:
+    defaults = dict(
+        model_cls="braindecode.models.EEGNet",
+        model_kwargs=dict(
+            F1=8,
+            D=2,
+            F2=16,
+            kernel_length=64,
+            depthwise_kernel_length=16,
+            drop_prob=0.25,
+        ),
+        peft_target_modules=[],
+        peft_ff_modules=[],
+        head_module_name="final_layer",
+        normalization=None,
+    )
+    defaults.update(overrides)
+    return PretrainedBackbone(**defaults)
+
+
 ALL_BACKBONES = {
     "biot": biot,
     "labram": labram,
@@ -185,4 +205,5 @@ ALL_BACKBONES = {
     "cbramod": cbramod,
     "signal_jepa": signal_jepa,
     "reve": reve,
+    "eegnet": eegnet,
 }
