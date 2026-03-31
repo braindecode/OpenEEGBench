@@ -13,7 +13,7 @@
 ## 🚀 Installation
 
 ```bash
-uv sync
+pip install open-eeg-bench
 ```
 
 ## 🏁 Benchmark your model

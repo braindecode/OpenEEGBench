@@ -38,7 +38,7 @@ print(results)
 ## 2. Launch from the login node
 
 ```bash
-uv run run_benchmark.py
+python run_benchmark.py
 ```
 
 That's it. The script itself runs on the login node (no GPU needed) and submits a SLURM **job array** under the hood. Each experiment (dataset x finetuning x head x seed) becomes one job in the array.
@@ -87,10 +87,11 @@ The `infra` dict accepts the following keys:
 
 ### Environment setup
 
-SLURM jobs reuse the Python interpreter from the submitting process. Make sure you run the launcher script in the right environment (e.g. with `uv run`):
+SLURM jobs reuse the Python interpreter from the submitting process. Make sure you run the launcher script in the right environment (e.g. with `uv run`, or `conda activate`):
 
 ```bash
-uv run run_benchmark.py
+conda activate myenv  # or uv run
+python run_benchmark.py
 ```
 
 You can also explicitly set an environment via the `conda_env` key in the `infra` dict (name or absolute path).
