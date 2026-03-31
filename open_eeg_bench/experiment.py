@@ -270,7 +270,16 @@ def collect_completed_results(
             job = exp.infra.job()
             row["job_id"] = job.job_id
             if status == "failed":
-                row["exception"] = str(job.exception())
+                ex = str(job.exception())
+                if "failed during processing with trace" in ex:
+                    # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L332
+                    ex = ex.split("--------------")[1].strip().splitlines()[-1]
+                elif "has not produced any output" in ex:
+                    # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L373
+                    ex = ex.splitlines()[0]
+                else:
+                    raise ValueError(f"Unexpected failure exception format: {ex}")
+                row["exception"] = ex
             if status == "completed":
                 result = job.result()
                 row.update(result)
