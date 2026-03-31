@@ -10,8 +10,6 @@ Contributions are welcome! Here are some ways to help:
 ## Development setup
 
 ```bash
-conda create -n open-eeg-bench python=3.12 uv -y
-conda activate open-eeg-bench
 uv pip install -e ".[dev]"
 pytest  # make sure everything passes
 ```

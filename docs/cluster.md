@@ -38,13 +38,10 @@ print(results)
 ## 2. Launch from the login node
 
 ```bash
-conda activate open-eeg-bench
-python run_benchmark.py
+uv run run_benchmark.py
 ```
 
 That's it. The script itself runs on the login node (no GPU needed) and submits a SLURM **job array** under the hood. Each experiment (dataset x finetuning x head x seed) becomes one job in the array.
-
-**Important:** Make sure the conda environment is activated before running the script. SLURM jobs will use the same Python interpreter, so the environment must contain all dependencies.
 
 ## 3. Collect results
 
@@ -90,14 +87,13 @@ The `infra` dict accepts the following keys:
 
 ### Environment setup
 
-SLURM jobs reuse the Python interpreter from the submitting process. Make sure you activate your conda environment **before** running the launcher script:
+SLURM jobs reuse the Python interpreter from the submitting process. Make sure you run the launcher script in the right environment (e.g. with `uv run`):
 
 ```bash
-conda activate open-eeg-bench
-python run_benchmark.py
+uv run run_benchmark.py
 ```
 
-You can also explicitly set the environment via the `conda_env` key in the `infra` dict (name or absolute path).
+You can also explicitly set an environment via the `conda_env` key in the `infra` dict (name or absolute path).
 
 ### HuggingFace cache
 

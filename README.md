@@ -13,9 +13,7 @@
 ## 🚀 Installation
 
 ```bash
-conda create -n open-eeg-bench python=3.12 uv -y
-conda activate open-eeg-bench
-uv pip install -e ".[dev]"
+uv sync
 ```
 
 ## 🏁 Benchmark your model
