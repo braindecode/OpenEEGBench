@@ -229,7 +229,7 @@ def collect_completed_results(
     experiments: Sequence[Experiment], collect_all: bool = False
 ) -> "pd.DataFrame":
     """Collect results of experiments.
-    
+
     This function never launches any jobs; it only collects results.
 
     Parameters
@@ -270,7 +270,7 @@ def collect_completed_results(
             job = exp.infra.job()
             row["job_id"] = job.job_id
             if status == "failed":
-                row["exception"] = str(job.exception())
+                row["exception"] = str(job.exception()).strip().splitlines()[-1]
             if status == "completed":
                 result = job.result()
                 row.update(result)
