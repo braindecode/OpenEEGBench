@@ -83,20 +83,22 @@ Your model only needs to:
 
 All 12 datasets are pre-windowed and hosted on [HuggingFace Hub](https://huggingface.co/braindecode):
 
-| Dataset | HF ID | Classes | Task |
-|---------|-------|---------|------|
-| Arithmetic (Zyma 2019) | [`braindecode/arithmetic_zyma2019`](https://huggingface.co/datasets/braindecode/arithmetic_zyma2019) | 2 | Mental arithmetic vs. rest |
-| BCI Competition IV 2a | [`braindecode/bcic2a`](https://huggingface.co/datasets/braindecode/bcic2a) | 4 | Motor imagery |
-| BCI Competition 2020-3 | [`braindecode/bcic2020-3`](https://huggingface.co/datasets/braindecode/bcic2020-3) | 5 | Imagined speech |
-| PhysioNet MI | [`braindecode/physionet`](https://huggingface.co/datasets/braindecode/physionet) | 4 | Motor imagery |
-| CHB-MIT | [`braindecode/chbmit`](https://huggingface.co/datasets/braindecode/chbmit) | 2 | Seizure detection |
-| FACED | [`braindecode/faced`](https://huggingface.co/datasets/braindecode/faced) | 9 | Emotion recognition |
-| ISRUC-Sleep | [`braindecode/isruc-sleep`](https://huggingface.co/datasets/braindecode/isruc-sleep) | 5 | Sleep staging |
-| MDD (Mumtaz 2016) | [`braindecode/mdd_mumtaz2016`](https://huggingface.co/datasets/braindecode/mdd_mumtaz2016) | 2 | Depression detection |
-| SEED-V | [`braindecode/seed-v`](https://huggingface.co/datasets/braindecode/seed-v) | 5 | Emotion recognition |
-| SEED-VIG | [`braindecode/seed-vig`](https://huggingface.co/datasets/braindecode/seed-vig) | regression | Vigilance estimation |
-| TUAB | [`braindecode/tuab`](https://huggingface.co/datasets/braindecode/tuab) | 2 | Abnormal EEG detection |
-| TUEV | [`braindecode/tuev`](https://huggingface.co/datasets/braindecode/tuev) | 6 | EEG event classification |
+| Dataset | HF ID | Classes | Window size | Task |
+|---------|-------|---------|------------|------|
+| Arithmetic (Zyma 2019) | [`braindecode/arithmetic_zyma2019`](https://huggingface.co/datasets/braindecode/arithmetic_zyma2019) | 2 | 5 s | Mental arithmetic vs. rest |
+| BCI Competition IV 2a | [`braindecode/bcic2a`](https://huggingface.co/datasets/braindecode/bcic2a) | 4 | 4 s | Motor imagery |
+| BCI Competition 2020-3 | [`braindecode/bcic2020-3`](https://huggingface.co/datasets/braindecode/bcic2020-3) | 5 | 3 s | Imagined speech |
+| PhysioNet MI | [`braindecode/physionet`](https://huggingface.co/datasets/braindecode/physionet) | 4 | 3 s | Motor imagery |
+| CHB-MIT | [`braindecode/chbmit`](https://huggingface.co/datasets/braindecode/chbmit) | 2 | 10 s | Seizure detection |
+| FACED | [`braindecode/faced`](https://huggingface.co/datasets/braindecode/faced) | 9 | 10 s | Emotion recognition |
+| ISRUC-Sleep | [`braindecode/isruc-sleep`](https://huggingface.co/datasets/braindecode/isruc-sleep) | 5 | 30 s | Sleep staging |
+| MDD (Mumtaz 2016) | [`braindecode/mdd_mumtaz2016`](https://huggingface.co/datasets/braindecode/mdd_mumtaz2016) | 2 | 5 s | Depression detection |
+| SEED-V | [`braindecode/seed-v`](https://huggingface.co/datasets/braindecode/seed-v) | 5 | 1 s | Emotion recognition |
+| SEED-VIG | [`braindecode/seed-vig`](https://huggingface.co/datasets/braindecode/seed-vig) | regression | 8 s | Vigilance estimation |
+| TUAB | [`braindecode/tuab`](https://huggingface.co/datasets/braindecode/tuab) | 2 | 10 s | Abnormal EEG detection |
+| TUEV | [`braindecode/tuev`](https://huggingface.co/datasets/braindecode/tuev) | 6 | 5 s | EEG event classification |
+
+**Preprocessing:**  Window lengths are dataset-dependant (see table above). All datasets are high-pass filtered at 0.1 Hz, except for tasks with short trial windows (2 s or less), where we use 0.5 Hz. All datasets are resampled to 100 Hz. Model-specific normalization (e.g. z-scoring) can be applied via the `normalization` parameter.
 
 ## 🧩 Available fine-tuning strategies
 
