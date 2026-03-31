@@ -270,7 +270,7 @@ def collect_completed_results(
             job = exp.infra.job()
             row["job_id"] = job.job_id
             if status == "failed":
-                row["exception"] = str(job.exception()).strip().splitlines()[-1]
+                row["exception"] = str(job.exception())
             if status == "completed":
                 result = job.result()
                 row.update(result)
