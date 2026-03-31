@@ -11,7 +11,7 @@ requires-python = ">=3.11"
 license = {text = "BSD-3-Clause"}
 
 dependencies = [
-    "braindecode @ git+https://github.com/braindecode/braindecode.git",
+    "braindecode[hub] @ git+https://github.com/braindecode/braindecode.git",
     "exca>=0.5.10",
     "peft>=0.14.0",
     "pydantic>=2.0",
@@ -21,7 +21,6 @@ dependencies = [
     "scikit-learn>=1.6.0",
     "skorch",
     "wandb",
-    "huggingface-hub",
 ]
 
 [project.optional-dependencies]
