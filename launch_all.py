@@ -34,6 +34,28 @@ def _clean_env_preserve_conf(*args, **kwargs):
 
 submitit.helpers.clean_env = _clean_env_preserve_conf
 
+# ── Expanse workaround: inject module loads into SLURM jobs ───────────────
+import exca.slurm as _exca_slurm
+
+_original_executor = _exca_slurm.SubmititMixin.executor
+
+
+def _patched_executor(self):
+    ex = _original_executor(self)
+    if ex is not None:
+        ex.update_parameters(
+            slurm_setup=[
+                "source ~/.bashrc",
+                f"export HF_HOME={HF_HOME}",
+                "module load gpu",
+                "module load cuda12.2/toolkit/12.2.2",
+            ]
+        )
+    return ex
+
+
+_exca_slurm.SubmititMixin.executor = _patched_executor
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(name)s %(levelname)s %(message)s",
@@ -85,11 +107,6 @@ for backbone in backbones:
                 "gpus": 1,
                 "qos": "gpu-shared-normal",
             },
-            "slurm_setup": [
-                f"export HF_HOME={HF_HOME}",
-                "module load gpu",
-                "module load cuda12.2/toolkit/12.2.2",
-            ],
         },
     }
     all_experiments.extend(
