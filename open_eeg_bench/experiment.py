@@ -225,7 +225,26 @@ class Experiment(BaseModel):
         log.info("Initialized lazy modules with dummy forward pass")
 
 
-def collect_completed_results(experiments: Sequence[Experiment]) -> "pd.DataFrame":
+def collect_completed_results(
+    experiments: Sequence[Experiment], collect_all: bool = False
+) -> "pd.DataFrame":
+    """Collect results of experiments.
+    
+    This function never launches any jobs; it only collects results.
+
+    Parameters
+    ----------
+    experiments: Sequence[Experiment]
+        The list of experiments to collect results from.
+    collect_all: bool
+        If True, collect results for all experiments regardless of status.
+        If False, only collect results for experiments with status "completed".
+
+    Returns
+    -------
+    pd.DataFrame
+        A DataFrame containing the collected results.
+    """
     import pandas as pd
 
     rows = []
@@ -233,19 +252,30 @@ def collect_completed_results(experiments: Sequence[Experiment]) -> "pd.DataFram
     for exp in experiments:
         status = exp.infra.status()
         status_counts[status] = status_counts.get(status, 0) + 1
-        if status == "completed":
-            result = exp.run()
-            result["dataset"] = exp.dataset.hf_id
-            result["finetuning"] = exp.finetuning.kind
-            result["head"] = exp.head.kind
-            result["seed"] = exp.seed
-            if isinstance((backbone := exp.backbone), PretrainedBackbone):
-                result["backbone"] = backbone.model_cls.split(".")[-1]
-            rows.append(result)
-        else:
+        if (status != "completed") and not collect_all:
             log.info(
                 f"Experiment {exp.infra.uid()} has status '{status}', skipping result collection."
             )
+            continue
+        row = {
+            "status": status,
+            "dataset": exp.dataset.hf_id,
+            "finetuning": exp.finetuning.kind,
+            "head": exp.head.kind,
+            "seed": exp.seed,
+        }
+        if isinstance((backbone := exp.backbone), PretrainedBackbone):
+            row["backbone"] = backbone.model_cls.split(".")[-1]
+        if status != "not submitted":
+            job = exp.infra.job()
+            row["job_id"] = job.job_id
+            if status == "failed":
+                row["exception"] = str(job.exception())
+            if status == "completed":
+                result = job.result()
+                row.update(result)
+        rows.append(row)
+
     # Print summary of job statuses:
     log.info(f"Experiment status summary: {status_counts}")
     log.info(
