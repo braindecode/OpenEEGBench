@@ -330,6 +330,9 @@ def run_many(
     pd.DataFrame
         One row per experiment with flattened result columns.
     """
+    if any(exp.infra.folder is None for exp in experiments):
+        raise ValueError("Each experiment must have infra.folder set for caching")
+
     if not experiments:
         import pandas as pd
 

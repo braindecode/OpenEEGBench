@@ -8,6 +8,7 @@ It accepts plain Python types (strings, dicts, lists) and returns a
 """
 
 from typing import TYPE_CHECKING
+from pathlib import Path
 import logging
 from typing import Any
 
@@ -137,6 +138,12 @@ def benchmark(
     if not isinstance(model_cls, str):
         # Convert class to its dotted import path string:
         model_cls = f"{model_cls.__module__}.{model_cls.__name__}"
+    
+    infra = dict(infra or {})
+    if "folder" not in infra:
+        infra["folder"] = Path("~/.cache/exca/").expanduser()
+        log.warning("No infra.folder provided — using default %s", infra["folder"])
+        print(infra)
 
     # Create the backbone config with the provided model
     backbone = PretrainedBackbone(
