@@ -68,7 +68,7 @@ from open_eeg_bench.experiment import run_many
 
 # ── Configuration ──────────────────────────────────────────────────────────
 BACKBONE_NAMES = ["cbramod", "labram", "reve", "eegnet"]
-DATASET_NAMES = ["faced"]
+DATASET_NAMES = ["faced", "bcic2a"]
 FINETUNING_NAMES = ["full_finetune"]
 HEAD_NAMES = ["linear_head"]
 N_SEEDS = 2
