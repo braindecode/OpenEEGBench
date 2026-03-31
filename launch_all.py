@@ -50,7 +50,7 @@ DATASET_NAMES = ["mdd_mumtaz2016"]
 FINETUNING_NAMES = ["full_finetune"]
 HEAD_NAMES = ["linear_head"]
 N_SEEDS = 2
-RESULTS_FOLDER = Path("/expanse/lustre/projects/nemar/bruno/cache/exca/")
+RESULTS_FOLDER = Path("/expanse/projects/nemar/bruno/cache/exca/")
 
 # ── Build experiment grid ──────────────────────────────────────────────────
 backbones = [ALL_BACKBONES[name]() for name in BACKBONE_NAMES]
