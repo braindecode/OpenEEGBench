@@ -71,8 +71,8 @@ BACKBONE_NAMES = ["cbramod", "labram", "reve", "eegnet"]
 DATASET_NAMES = ["mdd_mumtaz2016"]
 FINETUNING_NAMES = ["full_finetune"]
 HEAD_NAMES = ["linear_head"]
-N_SEEDS = 1  # sanity check
-SANITY_CHECK = True  # set to False for full run
+N_SEEDS = 2
+SANITY_CHECK = False
 RESULTS_FOLDER = Path("/expanse/projects/nemar/bruno/cache/exca/")
 
 # ── Build experiment grid ──────────────────────────────────────────────────
@@ -88,7 +88,7 @@ experiments_template = make_all_experiments(
 # Replace the placeholder backbone with each real backbone
 all_experiments = []
 for backbone in backbones:
-    training_overrides = {"device": "cuda"}
+    training_overrides = {"device": "cuda", "max_epochs": 100}
     if SANITY_CHECK:
         training_overrides.update({"max_epochs": 1, "early_stopping": {"enabled": False}})
     overrides = {
@@ -99,7 +99,7 @@ for backbone in backbones:
             "cluster": "slurm",
             "slurm_partition": "gpu-shared",
             "slurm_account": "csd403",
-            "timeout_min": 60,
+            "timeout_min": 180,
             "nodes": 1,
             "mem_gb": 32,
             "cpus_per_task": 8,
