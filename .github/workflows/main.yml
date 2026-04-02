@@ -1,0 +1,22 @@
+name: Tests
+
+on:
+  push:
+    branches:
+      - main
+  create:
+    tags:
+      - '**'
+  pull_request:
+    branches:
+      - main
+  schedule:
+    # Run every 1st of the month at 7:42am UTC.
+    - cron:  '42 7 1 * *'
+
+jobs:
+  benchopt_test:
+    uses: benchopt/template_benchmark/.github/workflows/test_benchmarks.yml@main
+    with:
+      benchopt_version: latest
+      benchmark_dir: benchopt_wrappers
