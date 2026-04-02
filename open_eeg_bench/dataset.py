@@ -105,6 +105,13 @@ class Dataset(BaseModel):
         description="Number of classes (None for regression)."
     )
     splitter: PredefinedSplitter
+    montage_name: str | None = Field(
+        default=None,
+        description=(
+            "Name of an MNE standard montage to set on the data, "
+            "e.g. 'standard_1005'. Use when channel positions are missing."
+        ),
+    )
 
     def load(self):
         """Pull windowed dataset from HuggingFace Hub."""
@@ -122,6 +129,17 @@ class Dataset(BaseModel):
             info_dict has keys: n_chans, n_times, n_outputs, sfreq, chs_info.
         """
         windows = self.load()
+
+        # Set standard montage if channel positions are missing
+        if self.montage_name is not None:
+            import mne
+
+            montage = mne.channels.make_standard_montage(self.montage_name)
+            for ds in windows.datasets:
+                if hasattr(ds, "raw") and ds.raw is not None:
+                    ds.raw.set_montage(montage)
+                else:
+                    ds.windows.set_montage(montage)
 
         # Apply normalization as transform
         if normalization is not None:

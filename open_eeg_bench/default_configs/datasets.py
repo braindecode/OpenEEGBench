@@ -17,6 +17,7 @@ def arithmetic_zyma2019(**overrides) -> Dataset:
     defaults = dict(
         hf_id="braindecode/arithmetic_zyma2019",
         n_classes=2,
+        montage_name="standard_1005",
         splitter=PredefinedSplitter(
             metadata_key="subject",
             train_values=[f"{i:02d}" for i in range(28)],
@@ -49,6 +50,7 @@ def bcic2020_3(**overrides) -> Dataset:
     defaults = dict(
         hf_id="braindecode/bcic2020-3",
         n_classes=5,
+        montage_name="standard_1005",
         splitter=PredefinedSplitter(
             metadata_key="run",
             train_values=["00"],
@@ -81,6 +83,7 @@ def chbmit(**overrides) -> Dataset:
     defaults = dict(
         hf_id="braindecode/chbmit",
         n_classes=2,
+        montage_name="standard_1005",
         splitter=PredefinedSplitter(
             metadata_key="subject",
             train_values=[f"chb{i:02d}" for i in range(1, 20)],
@@ -97,6 +100,7 @@ def faced(**overrides) -> Dataset:
     defaults = dict(
         hf_id="braindecode/faced",
         n_classes=9,
+        montage_name="standard_1005",
         splitter=PredefinedSplitter(
             metadata_key="subject",
             train_values=[f"{i:03d}" for i in range(0, 80)],
@@ -113,6 +117,7 @@ def isruc_sleep(**overrides) -> Dataset:
     defaults = dict(
         hf_id="braindecode/isruc-sleep",
         n_classes=5,
+        montage_name="standard_1005",
         splitter=PredefinedSplitter(
             metadata_key="subject",
             # fmt: off
@@ -139,6 +144,7 @@ def mdd_mumtaz2016(**overrides) -> Dataset:
     defaults = dict(
         hf_id="braindecode/mdd_mumtaz2016",
         n_classes=2,
+        montage_name="standard_1005",
         splitter=PredefinedSplitter(
             metadata_key="subject",
             # fmt: off
