@@ -24,6 +24,9 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+benchopt = [
+    "benchopt>=1.9",
+]
 dev = [
     "pytest",
     "pytest-cov",
