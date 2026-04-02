@@ -16,3 +16,5 @@ results/
 .claude/
 .vscode/
 scripts/
+benchmark_open_eeg/outputs/
+benchmark_open_eeg/__cache__/
