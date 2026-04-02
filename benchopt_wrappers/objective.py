@@ -1,22 +1,23 @@
-import math
-
 from benchopt import BaseObjective, safe_import_context
+from pathlib import Path
+
 
 with safe_import_context() as import_ctx:
-    from open_eeg_bench.dataset import Dataset as DatasetConfig
-    
-OpenEEGBench = Pathlib(__file__).parents[1]
+    import open_eeg_bench  # noqa: F401
+
+OpenEEGBench = Path(__file__).parents[1]
+
 
 class Objective(BaseObjective):
     name = "EEG-Bench"
     url = "https://github.com/OpenEEG-Bench/open-eeg-bench"
 
     min_benchopt_version = "1.9"
-    
-    requirements = [
-        f"pip::{OpenEEGBench}"
-    ]
+
+    # Install local repository as a pip package
+    requirements = [f"pip::{OpenEEGBench}"]
     sampling_strategy = "run_once"
+
     def set_data(self, dataset_config):
         self.dataset_config = dataset_config
 
