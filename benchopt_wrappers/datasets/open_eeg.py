@@ -1,7 +1,6 @@
-from benchopt import BaseDataset, safe_import_context
+from benchopt import BaseDataset
 
-with safe_import_context() as import_ctx:
-    from open_eeg_bench.default_configs.datasets import ALL_DATASETS
+from open_eeg_bench.default_configs.datasets import ALL_DATASETS
 
 
 class Dataset(BaseDataset):

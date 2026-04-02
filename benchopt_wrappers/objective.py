@@ -4,7 +4,9 @@ from benchopt import BaseObjective, safe_import_context
 
 with safe_import_context() as import_ctx:
     from open_eeg_bench.dataset import Dataset as DatasetConfig
+from benchopt import BaseObjective
 
+from open_eeg_bench.dataset import Dataset as DatasetConfig
 
 class Objective(BaseObjective):
     name = "EEG-Bench"
