@@ -40,7 +40,7 @@ class Solver(BaseSolver):
             # "mlp_head",
             # "original_head",
         ],
-        "max_epochs": [30],  # For testing purposes, set to 1 epoch. Adjust as needed.
+        "max_epochs": [30],  # For testing purposes, set to 1 epoch.
     }
 
     test_config = {

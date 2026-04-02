@@ -1,0 +1,11 @@
+plots:
+  - table
+  - boxplot
+plot_configs:
+  Table:
+    plot_kind: table
+  Boxplot:
+    plot_kind: boxplot
+    boxplot_objective_column: objective_balanced_accuracy
+    boxplot_X_axis: Solver
+    boxplot_Y_axis: Objective Metric
