@@ -47,7 +47,7 @@ def make_all_experiments(
     n_seeds : int
         Number of random seeds for initialization of the heads and new layers.
     """
-    seeds = list(range(1, n_seeds + 1))
+    seeds = list(range(n_seeds))
     heads = heads or ["linear_head"]
     finetuning_strategies = finetuning_strategies or ["frozen"]
     datasets = datasets or list(ALL_DATASETS.keys())
