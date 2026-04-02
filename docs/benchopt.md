@@ -9,7 +9,7 @@ Open EEG Bench provides a **Benchopt interface** as an alternative to the Python
 | Launch | `benchmark()` or `run_many()` | `benchopt run` CLI |
 | Parameter grid | Manual loops or `make_all_experiments()` | Automatic from `parameters` dicts |
 | Caching | exca `TaskInfra` | Benchopt's built-in caching |
-| SLURM | `infra={"cluster": "slurm"}` | `benchopt run --slurm` |
+| SLURM | `infra={"cluster": "slurm"}` | `benchopt run --parallel-config my_config_parallel.yaml` (see [doc](https://benchopt.github.io/stable/user_guide/distributed_run.html)) |
 | Results | `pd.DataFrame` | `.parquet` files + built-in plots |
 
 ## Installation
