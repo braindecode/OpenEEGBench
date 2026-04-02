@@ -9,7 +9,7 @@ Quick start:
 ```bash
 pip install open-eeg-bench[benchopt]
 
-benchopt run ./benchmark_open_eeg \
+benchopt run ./benchopt_wrappers \
   -s "FineTune[backbone_name=biot,finetuning_name=frozen,head_name=linear_head]" \
   -d "OpenEEG[dataset_name=arithmetic_zyma2019]" \
   --n-repetitions 3

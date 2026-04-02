@@ -31,7 +31,7 @@ pip install benchopt
 Run a single backbone + finetuning combination on one dataset:
 
 ```bash
-benchopt run ./benchmark_open_eeg \
+benchopt run ./benchopt_wrappers \
   -s "FineTune[backbone_name=biot,finetuning_name=frozen,head_name=linear_head]" \
   -d "OpenEEG[dataset_name=arithmetic_zyma2019]" \
   --n-repetitions 3
@@ -40,10 +40,10 @@ benchopt run ./benchmark_open_eeg \
 Run the full benchmark (all backbones x finetuning strategies x heads x datasets):
 
 ```bash
-benchopt run ./benchmark_open_eeg --n-repetitions 3
+benchopt run ./benchopt_wrappers --n-repetitions 3
 ```
 
-Results are saved as `.parquet` files in `benchmark_open_eeg/outputs/`.
+Results are saved as `.parquet` files in `benchopt_wrappers/outputs/`.
 
 ## Selecting parameters
 
@@ -67,14 +67,14 @@ Examples:
 
 ```bash
 # Two backbones, frozen only, on two datasets
-benchopt run ./benchmark_open_eeg \
+benchopt run ./benchopt_wrappers \
   -s "FineTune[backbone_name=biot,finetuning_name=frozen,head_name=linear_head]" \
   -s "FineTune[backbone_name=labram,finetuning_name=frozen,head_name=linear_head]" \
   -d "OpenEEG[dataset_name=arithmetic_zyma2019]" \
   -d "OpenEEG[dataset_name=bcic2a]"
 
 # LoRA vs frozen on all datasets
-benchopt run ./benchmark_open_eeg \
+benchopt run ./benchopt_wrappers \
   -s "FineTune[backbone_name=biot,finetuning_name=frozen,head_name=linear_head]" \
   -s "FineTune[backbone_name=biot,finetuning_name=lora,head_name=linear_head]"
 ```
