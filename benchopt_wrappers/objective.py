@@ -5,6 +5,7 @@ from pathlib import Path
 with safe_import_context() as import_ctx:
     import open_eeg_bench  # noqa: F401
 
+# Install local files instead of relying on pypi version
 OpenEEGBench = Path(__file__).parents[1]
 
 
