@@ -120,6 +120,7 @@ BSD-3-Clause (see [LICENSE.txt](LICENSE.txt))
 ## 📚 Further reading
 
 - [Running on a cluster](docs/cluster.md) — SLURM submission, `infra` options, caching, execution modes
+- [Running with Benchopt](docs/benchopt.md) — Alternative CLI-based workflow using the [Benchopt](https://benchopt.github.io/) framework
 - [Advanced usage](docs/advanced.md) — `Experiment` class, architecture overview, braindecode integration
 - [Built-in backbones](docs/backbones.md) — Pretrained models shipped with the benchmark
 - [Contributing](docs/contributing.md) — How to add backbones, datasets, or fine-tuning strategies
