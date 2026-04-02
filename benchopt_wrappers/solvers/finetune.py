@@ -40,12 +40,14 @@ class Solver(BaseSolver):
             # "mlp_head",
             # "original_head",
         ],
+        "max_epochs": [30],  # For testing purposes, set to 1 epoch. Adjust as needed.
     }
 
-    test_parameters = {
-        "backbone_name": ["biot"],
-        "finetuning_name": ["frozen"],
-        "head_name": ["linear_head"],
+    test_config = {
+        "backbone_name": "biot",
+        "finetuning_name": "frozen",
+        "head_name": "linear_head",
+        "max_epochs": 1,
     }
 
     def set_objective(self, dataset_config):
@@ -59,6 +61,7 @@ class Solver(BaseSolver):
 
         device = "cuda" if torch.cuda.is_available() else "cpu"
         training = default_training().model_copy(update={"device": device})
+        training.max_epochs = self.max_epochs
 
         exp = Experiment(
             seed=self.seed,
