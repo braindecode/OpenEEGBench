@@ -12,7 +12,7 @@ class Objective(BaseObjective):
     name = "EEG-Bench"
     url = "https://github.com/OpenEEG-Bench/open-eeg-bench"
 
-    min_benchopt_version = "1.5"
+    min_benchopt_version = "1.9"
 
     def set_data(self, dataset_config):
         self.dataset_config = dataset_config
