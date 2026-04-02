@@ -13,7 +13,7 @@ class Objective(BaseObjective):
     url = "https://github.com/OpenEEG-Bench/open-eeg-bench"
 
     min_benchopt_version = "1.9"
-
+    sampling_strategy = "run_once"
     def set_data(self, dataset_config):
         self.dataset_config = dataset_config
 
@@ -23,13 +23,9 @@ class Objective(BaseObjective):
     def evaluate_result(self, **result):
         out = {}
         if "test_balanced_accuracy" in result:
-            out["value"] = result["test_balanced_accuracy"]
             out["balanced_accuracy"] = result["test_balanced_accuracy"]
         elif "test_r2" in result:
-            out["value"] = result["test_r2"]
             out["r2"] = result["test_r2"]
-        else:
-            out["value"] = math.nan
 
         adapter_stats = result.get("adapter_stats", {})
         for k, v in adapter_stats.items():
