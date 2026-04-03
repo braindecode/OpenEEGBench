@@ -3,39 +3,29 @@ from typing import TYPE_CHECKING
 import os
 import contextlib
 import logging
+import math
+from operator import attrgetter
 
-
-import submitit.helpers
 
 if TYPE_CHECKING:
     import pandas as pd
 
-from open_eeg_bench.experiment import Experiment, collect_completed_results
+from exca.helpers import to_config_model
+
+
+from open_eeg_bench.experiment import Experiment, collect_completed_results, run_many
 
 log = logging.getLogger(__name__)
 
+MetaExperiment = to_config_model(run_many)
 
-# @exca.helpers.with_infra(
-#     folder=Path("~/.cache/exca/").expanduser(),
-#     cluster="slurm",
-#     mode="force",
-#     slurm_partition="shared",
-#     slurm_account="csd403",
-#     job_name="queue-launcher",
-#     nodes=1,
-#     cpus_per_task=1,
-#     mem_gb=4,
-#     timeout_min=60 * 24,
-#     slurm_additional_parameters={
-#         "qos": "shared-normal",
-#     },
-# )
+
 def run_many_with_queue(
     *,
-    experiments: list[Experiment],
+    experiments: list[Experiment | MetaExperiment],
     queue_size: int = 20,
     sleep_seconds: float = 5.0,
-) -> "pd.DataFrame":
+) -> None:
     """Run many experiments with a queue to avoid overloading the cluster scheduler.
     This is useful when you have a large number of experiments to run, but don't want to submit them all at once to the cluster scheduler (e.g., SLURM) to avoid overloading it.
 
@@ -55,6 +45,7 @@ def run_many_with_queue(
     sleep_seconds: float
         The number of seconds to sleep between each check of the queue.
     """
+    import submitit.helpers
 
     _original_clean_env = submitit.helpers.clean_env
     # SLURM_CONF = "/cm/shared/apps/slurm/var/etc/expanse/slurm.conf"
@@ -99,4 +90,51 @@ def run_many_with_queue(
 
         time.sleep(sleep_seconds)
 
-    return collect_completed_results(experiments)
+
+def run_multiple_per_node(
+    experiments: list[Experiment],
+    max_experiments_per_node: int = 10,
+    only_return_configs: bool = False,
+    max_workers: int = 256,
+):
+    if len(experiments) == 0:
+        return None
+
+    # 1. Modify the infras such that they are executed on the local node
+    first = experiments[0]
+    assert (
+        first.infra.cluster == "slurm"
+    ), "This function is designed for SLURM execution"
+    original_infra = first.infra.model_dump(mode="python")
+    experiments = [
+        exp.infra.clone_obj({"infra": {"cluster": "local"}}) for exp in experiments
+    ]
+
+    # 2. Split experiments into groups of max_experiments_per_node
+    # The preferred grouping is dataset > backbone > finetuning > head
+    # We group them like this to try to group them by duration such that
+    # within one group, all experiments roughly end (and free the node) simultaneously.
+    sorted_experiments = sorted(
+        experiments,
+        key=attrgetter(
+            "dataset.hf_id", "backbone.model_cls", "finetuning.kind", "head.kind"
+        ),
+    )
+    n_groups = math.ceil(len(experiments) / max_experiments_per_node)
+    n = max_experiments_per_node
+    n_groups = math.ceil(len(sorted_experiments) / n)
+    groups = [sorted_experiments[i * n : (i + 1) * n] for i in range(n_groups)]
+
+    # 3. Create one meta-experiment per group
+    meta_experiments = [
+        MetaExperiment(
+            experiments=group, wait=True, infra=original_infra  # type: ignore
+        )
+        for group in groups
+    ]
+
+    if only_return_configs:
+        return meta_experiments
+
+    with meta_experiments[0].infra.job_array(max_workers=max_workers) as array:
+        array.extend(meta_experiments)
