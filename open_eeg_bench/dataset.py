@@ -118,7 +118,7 @@ class Dataset(BaseModel):
         from braindecode.datasets import BaseConcatDataset
 
         log.info("Loading dataset from HuggingFace Hub: %s", self.hf_id)
-        return BaseConcatDataset.pull_from_hub(self.hf_id)
+        return BaseConcatDataset.pull_from_hub(self.hf_id, preload=False)
 
     def setup(self, normalization=None):
         """Load dataset, apply normalization, split, and return sets.
