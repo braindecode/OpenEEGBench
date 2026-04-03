@@ -226,7 +226,7 @@ class Experiment(BaseModel):
 
 
 def collect_completed_results(
-    experiments: Sequence[Experiment], collect_all: bool = False
+    experiments: Sequence[Experiment], wait: bool = False, collect_all: bool = False
 ) -> "pd.DataFrame":
     """Collect results of experiments.
 
@@ -236,9 +236,13 @@ def collect_completed_results(
     ----------
     experiments: Sequence[Experiment]
         The list of experiments to collect results from.
+    wait: bool
+        If True, wait for all experiments to reach a terminal status before collecting results.
+        If False, collect results for experiments that have already reached a terminal status and skip the rest.
+        However, experiments with status "not submitted" will not be launched.
     collect_all: bool
-        If True, collect results for all experiments regardless of status.
-        If False, only collect results for experiments with status "completed".
+        If True, collect one row per experiment but will not wait for 'running' experiments to finish (unless wait=True).
+        If False (and wait=False), only collect results for experiments with status "completed".
 
     Returns
     -------
@@ -247,42 +251,49 @@ def collect_completed_results(
     """
     import pandas as pd
 
+    def parse_exception(job):
+        ex = str(job.exception())
+        if "failed during processing with trace" in ex:
+            # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L332
+            return ex.split("--------------")[1].strip().splitlines()[-1]
+        elif "has not produced any output" in ex:
+            # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L373
+            return ex.splitlines()[0]
+        else:
+            raise ValueError(f"Unexpected failure exception format: {ex}")
+
     rows = []
     status_counts = {}
     for exp in experiments:
         status = exp.infra.status()
-        status_counts[status] = status_counts.get(status, 0) + 1
-        if (status != "completed") and not collect_all:
+        if (status != "completed") and not (collect_all or wait):
             log.info(
                 f"Experiment {exp.infra.uid()} has status '{status}', skipping result collection."
             )
             continue
+        assert isinstance(  # for type checking
+            (backbone := exp.backbone), PretrainedBackbone
+        )
         row = {
-            "status": status,
+            "backbone": backbone.model_cls.split(".")[-1],
             "dataset": exp.dataset.hf_id,
             "finetuning": exp.finetuning.kind,
             "head": exp.head.kind,
             "seed": exp.seed,
         }
-        if isinstance((backbone := exp.backbone), PretrainedBackbone):
-            row["backbone"] = backbone.model_cls.split(".")[-1]
         if status != "not submitted":
             job = exp.infra.job()
             row["job_id"] = job.job_id
+            if wait:
+                job.wait()
+                status = exp.infra.status()  # refresh status after waiting
             if status == "failed":
-                ex = str(job.exception())
-                if "failed during processing with trace" in ex:
-                    # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L332
-                    ex = ex.split("--------------")[1].strip().splitlines()[-1]
-                elif "has not produced any output" in ex:
-                    # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L373
-                    ex = ex.splitlines()[0]
-                else:
-                    raise ValueError(f"Unexpected failure exception format: {ex}")
-                row["exception"] = ex
+                row["exception"] = parse_exception(job)
             if status == "completed":
                 result = job.result()
                 row.update(result)
+        status_counts[status] = status_counts.get(status, 0) + 1
+        row["status"] = status
         rows.append(row)
 
     # Print summary of job statuses:
@@ -299,6 +310,7 @@ def collect_completed_results(
 def run_many(
     experiments: Sequence[Experiment],
     max_workers: int = 256,
+    wait: bool = False,
     collect_all: bool = False,
 ) -> "pd.DataFrame":
     """Run a list of experiments with caching and optional cluster submission.
@@ -321,9 +333,13 @@ def run_many(
     max_workers : int
         Maximum number of SLURM jobs running at the same time (maps to
         ``--array=...%max_workers``).  Only effective with ``cluster="slurm"``.
+    wait: bool
+        If True, wait for all experiments to reach a terminal status before collecting results.
+        If False, collect results for experiments that have already reached a terminal status and skip the rest.
+        However, experiments with status "not submitted" will not be launched.
     collect_all: bool
-        If True, collect results for all experiments regardless of status.
-        If False, only collect results for experiments with status "completed".
+        If True, collect one row per experiment but will not wait for 'running' experiments to finish (unless wait=True).
+        If False (and wait=False), only collect results for experiments with status "completed".
 
     Returns
     -------
@@ -344,4 +360,4 @@ def run_many(
     with first.infra.job_array(max_workers=max_workers) as array:
         array.extend(experiments)
 
-    return collect_completed_results(experiments, collect_all=collect_all)
+    return collect_completed_results(experiments, wait=wait, collect_all=collect_all)
