@@ -97,10 +97,28 @@ def run_multiple_per_node(
     only_return_configs: bool = False,
     max_workers: int = 256,
 ):
+    """Group experiments and submit each group as a single SLURM job.
+
+    Instead of one SLURM job per experiment, this packs up to
+    ``max_experiments_per_node`` experiments into a single job.
+    Each job runs its experiments locally (sequentially via ``run_many``).
+
+    Parameters
+    ----------
+    experiments: list[Experiment]
+        Experiments to run. Must all be configured with ``cluster="slurm"``.
+    max_experiments_per_node: int
+        Maximum number of experiments to run within a single SLURM job.
+    only_return_configs: bool
+        If True, return the list of MetaExperiment without submitting them.
+    max_workers: int
+        Maximum number of SLURM jobs running concurrently.
+    """
     if len(experiments) == 0:
         return None
 
-    # 1. Modify the infras such that they are executed on the local node
+    # Save the SLURM infra, then switch experiments to local execution
+    # (they will run locally *inside* the SLURM job).
     first = experiments[0]
     assert (
         first.infra.cluster == "slurm"
@@ -110,22 +128,19 @@ def run_multiple_per_node(
         exp.infra.clone_obj({"infra": {"cluster": "local"}}) for exp in experiments
     ]
 
-    # 2. Split experiments into groups of max_experiments_per_node
-    # The preferred grouping is dataset > backbone > finetuning > head
-    # We group them like this to try to group them by duration such that
-    # within one group, all experiments roughly end (and free the node) simultaneously.
+    # Sort by dataset > backbone > finetuning > head so that experiments
+    # with similar durations end up in the same group (freeing nodes sooner).
     sorted_experiments = sorted(
         experiments,
         key=attrgetter(
             "dataset.hf_id", "backbone.model_cls", "finetuning.kind", "head.kind"
         ),
     )
-    n_groups = math.ceil(len(experiments) / max_experiments_per_node)
     n = max_experiments_per_node
     n_groups = math.ceil(len(sorted_experiments) / n)
     groups = [sorted_experiments[i * n : (i + 1) * n] for i in range(n_groups)]
 
-    # 3. Create one meta-experiment per group
+    # Wrap each group into a MetaExperiment submitted as one SLURM job.
     meta_experiments = [
         MetaExperiment(
             experiments=group, wait=True, infra=original_infra  # type: ignore
