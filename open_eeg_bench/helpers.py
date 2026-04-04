@@ -29,6 +29,10 @@ def run_many_with_queue(
     """Run many experiments with a queue to avoid overloading the cluster scheduler.
     This is useful when you have a large number of experiments to run, but don't want to submit them all at once to the cluster scheduler (e.g., SLURM) to avoid overloading it.
 
+    .. warning::
+        This function is experimental and not stable. Its interface and
+        behavior may change without notice in future versions.
+
     To launch this function as a SLURM job, you can decorate it
     with exca's helper:
 
@@ -98,6 +102,10 @@ def run_multiple_per_node(
     max_workers: int = 256,
 ):
     """Group experiments and submit each group as a single SLURM job.
+
+    .. warning::
+        This function is experimental and not stable. Its interface and
+        behavior may change without notice in future versions.
 
     Instead of one SLURM job per experiment, this packs up to
     ``max_experiments_per_node`` experiments into a single job.
