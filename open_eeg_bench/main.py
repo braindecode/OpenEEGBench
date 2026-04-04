@@ -146,7 +146,7 @@ def benchmark(
         print(infra)
 
     # Create the backbone config with the provided model
-    backbone = PretrainedBackbone(
+    backbone_kwargs = dict(
         model_cls=model_cls,
         hub_repo=hub_repo,
         checkpoint_url=checkpoint_url,
@@ -155,8 +155,10 @@ def benchmark(
         peft_target_modules=peft_target_modules or [],
         head_module_name=head_module_name,
         peft_ff_modules=peft_ff_modules or [],
-        normalization=normalization,
     )
+    if normalization is not None:
+        backbone_kwargs["normalization"] = normalization
+    backbone = PretrainedBackbone.model_validate(backbone_kwargs)
 
     # Create all experiment configs (dataset x head x finetuning x seed combinations)
     experiments = make_all_experiments(

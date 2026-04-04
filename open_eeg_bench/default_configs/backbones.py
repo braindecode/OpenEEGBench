@@ -148,7 +148,6 @@ def signal_jepa(**overrides) -> PretrainedBackbone:
             "self_attn.v_proj_weight",
         ],
         peft_ff_modules=["linear1", "linear2"],
-        normalization=None,
         checkpoint_url="https://huggingface.co/braindecode/SignalJEPA/resolve/main/signal-jepa_16s-60_adeuwv4s.pth",
     )
     defaults.update(overrides)

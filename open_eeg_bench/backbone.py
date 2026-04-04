@@ -17,7 +17,7 @@ from importlib import import_module
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from open_eeg_bench.normalization import Normalization
+from open_eeg_bench.normalization import NoNormalization, Normalization
 
 log = logging.getLogger(__name__)
 
@@ -40,8 +40,8 @@ class _BackboneBase(BaseModel):
         default="final_layer",
         description="Name of the classification head module in the model.",
     )
-    normalization: Normalization | None = Field(
-        default=None,
+    normalization: Normalization = Field(
+        default=NoNormalization(),
         description="Post-window normalization applied to each data window.",
     )
 
