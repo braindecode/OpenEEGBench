@@ -103,7 +103,24 @@ class ScaleToMV(BaseModel):
         return data / 1000.0
 
 
+class NoNormalization(BaseModel):
+    """No-op normalization (identity). Default when no normalization is needed."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["none"] = "none"
+
+    def apply(self, data: np.ndarray) -> np.ndarray:
+        return data
+
+
 Normalization = Annotated[
-    Union[DivideByConstant, PercentileScale, MinMaxScale, WindowZScore, ScaleToMV],
+    Union[
+        NoNormalization,
+        DivideByConstant,
+        PercentileScale,
+        MinMaxScale,
+        WindowZScore,
+        ScaleToMV,
+    ],
     Field(discriminator="kind"),
 ]
