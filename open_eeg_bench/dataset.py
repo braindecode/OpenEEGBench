@@ -118,9 +118,9 @@ class Dataset(BaseModel):
         from braindecode.datasets import BaseConcatDataset
 
         log.info("Loading dataset from HuggingFace Hub: %s", self.hf_id)
-        return BaseConcatDataset.pull_from_hub(self.hf_id)
+        return BaseConcatDataset.pull_from_hub(self.hf_id, preload=False)
 
-    def setup(self, normalization=None):
+    def setup(self, normalization):
         """Load dataset, apply normalization, split, and return sets.
 
         Returns
@@ -142,20 +142,19 @@ class Dataset(BaseModel):
                     ds.windows.set_montage(montage)
 
         # Apply normalization as transform
-        if normalization is not None:
-            for ds in windows.datasets:
-                existing = ds.transform
+        for ds in windows.datasets:
+            existing = ds.transform
 
-                def _make_norm_transform(norm, old_transform):
-                    def transform(x):
-                        x = norm.apply(x)
-                        if old_transform is not None:
-                            x = old_transform(x)
-                        return x
+            def _make_norm_transform(norm, old_transform):
+                def transform(x):
+                    x = norm.apply(x)
+                    if old_transform is not None:
+                        x = old_transform(x)
+                    return x
 
-                    return transform
+                return transform
 
-                ds.transform = _make_norm_transform(normalization, existing)
+            ds.transform = _make_norm_transform(normalization, existing)
 
         # Extract dataset info (works for both raw-backed and Epochs-backed datasets)
         sample_x, sample_y, _ = windows[0]
