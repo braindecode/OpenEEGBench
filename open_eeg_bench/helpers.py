@@ -163,15 +163,31 @@ def run_multiple_per_node(
     if len(experiments) == 0:
         return None
 
+    # Figure out which experiments to skip
+    skip_list = [False] * len(experiments)
+    for i, exp in enumerate(experiments):
+        status = exp.infra.status()
+        if (
+            (status == "not submitted")
+            or (exp.infra.mode == "force")
+            or ((status == "failed") and (exp.infra.mode == "retry"))
+        ):
+            continue
+        skip_list[i] = True
+        print(f"Skipping experiment {i} with status {status} and mode {exp.infra.mode}")
+
     # Save the SLURM infra, then switch experiments to local execution
-    # (they will run locally *inside* the SLURM job).
+    # (they will run locally *inside* the SLURM job), and filter out experiments
+    # that are already complete or running.
     first = experiments[0]
     assert (
         first.infra.cluster == "slurm"
     ), "This function is designed for SLURM execution"
     original_infra = first.infra.model_dump(mode="python")
     experiments = [
-        exp.infra.clone_obj({"infra": {"cluster": None}}) for exp in experiments
+        exp.infra.clone_obj({"infra": {"cluster": None}})
+        for exp, skip in zip(experiments, skip_list)
+        if not skip
     ]
 
     # Sort by dataset > backbone > finetuning > head so that experiments
