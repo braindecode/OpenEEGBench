@@ -23,3 +23,13 @@ pytest tests/test_backbones.py        # model build & forward
 pytest tests/test_normalization.py    # normalization correctness
 pytest -k "test_name"                 # single test
 ```
+
+## Version bumping and changelog
+
+**TODO list when releasing a new version:**
+- [ ] Update `version` in `pyproject.toml`
+- [ ] Update the "Unreleased" section in `CHANGELOG.md` with the new version and release date, and move the changes from "Unreleased" to the new version section
+- [ ] Add a link for the new version at the bottom of `CHANGELOG.md`
+- [ ] Modify the "Unreleased" link at the bottom of `CHANGELOG.md` to point to the new version's commit range
+- [ ] Run `uv lock` to update the lock file
+- [ ] Push the changes and create a new release on GitHub with the new version tag
