@@ -254,11 +254,13 @@ def collect_completed_results(
         if "failed during processing with trace" in ex:
             # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L332
             return ex.split("--------------")[1].strip().splitlines()[-1]
-        elif "has not produced any output" in ex:
+        if "has not produced any output" in ex:
             # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L373
             return ex.splitlines()[0]
-        else:
-            raise ValueError(f"Unexpected failure exception format: {ex}")
+        last_line = ex.strip().splitlines()[-1]
+        if "err" in last_line.lower():
+            return last_line
+        raise ValueError(f"Unexpected failure exception format: {ex}")
 
     rows = []
     status_counts = {}
