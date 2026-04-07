@@ -52,8 +52,6 @@ class Experiment(BaseModel):
     training: Training = Field(default_factory=Training)
     infra: exca.TaskInfra = exca.TaskInfra(version="1")
 
-    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("infra",)
-
     @model_validator(mode="after")
     def _check_frozen_needs_new_head(self):
         if isinstance(self.finetuning, Frozen) and isinstance(self.head, OriginalHead):
