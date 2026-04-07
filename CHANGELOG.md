@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- not yet
+- PyPI metadata and discoverability: project URLs, classifiers, and README badges (PyPI version, supported Python versions, tests status, HuggingFace Space) ([#14](https://github.com/braindecode/OpenEEGBench/pull/14)).
 
 ### Changed
 - not yet
