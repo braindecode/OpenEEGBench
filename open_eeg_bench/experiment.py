@@ -52,8 +52,6 @@ class Experiment(BaseModel):
     training: Training = Field(default_factory=Training)
     infra: exca.TaskInfra = exca.TaskInfra(version="1")
 
-    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("infra",)
-
     @model_validator(mode="after")
     def _check_frozen_needs_new_head(self):
         if isinstance(self.finetuning, Frozen) and isinstance(self.head, OriginalHead):
@@ -256,11 +254,13 @@ def collect_completed_results(
         if "failed during processing with trace" in ex:
             # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L332
             return ex.split("--------------")[1].strip().splitlines()[-1]
-        elif "has not produced any output" in ex:
+        if "has not produced any output" in ex:
             # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L373
             return ex.splitlines()[0]
-        else:
-            raise ValueError(f"Unexpected failure exception format: {ex}")
+        last_line = ex.strip().splitlines()[-1]
+        if "err" in last_line.lower():
+            return last_line
+        raise ValueError(f"Unexpected failure exception format: {ex}")
 
     rows = []
     status_counts = {}
