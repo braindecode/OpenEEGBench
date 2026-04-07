@@ -1,23 +1,56 @@
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 import os
 import contextlib
 import logging
 import math
 from operator import attrgetter
+from joblib import Parallel, delayed
 
 
 if TYPE_CHECKING:
     import pandas as pd
 
 from exca.helpers import to_config_model
+from pydantic import BaseModel, model_validator, ConfigDict
+from exca import TaskInfra
 
 
 from open_eeg_bench.experiment import Experiment, collect_completed_results, run_many
 
 log = logging.getLogger(__name__)
 
-MetaExperiment = to_config_model(run_many)
+
+class MetaExperiment(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    experiments: list[Experiment]
+    n_jobs: int = -1
+
+    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("n_jobs",)
+    infra: TaskInfra = TaskInfra()
+
+    @model_validator(mode="after")
+    def validate_experiments(self):
+        for exp in self.experiments:
+            assert exp.infra.cluster is None
+            assert exp.infra.folder is not None
+        return self
+
+    @staticmethod
+    def worker_function(exp: Experiment):
+        try:
+            return exp.run()
+        except Exception as e:
+            print(f"Error with experiment {exp}: {e}")
+            return None
+
+    @infra.apply()
+    def run(self) -> list[dict | None]:
+        results = Parallel(n_jobs=self.n_jobs)(
+            delayed(self.worker_function)(exp) for exp in self.experiments
+        )
+        return list(results)
 
 
 def run_many_with_queue(
@@ -98,6 +131,7 @@ def run_many_with_queue(
 def run_multiple_per_node(
     experiments: list[Experiment],
     max_experiments_per_node: int = 10,
+    max_experiments_running_per_node: int = -1,
     only_return_configs: bool = False,
     max_workers: int = 256,
 ):
@@ -117,6 +151,10 @@ def run_multiple_per_node(
         Experiments to run. Must all be configured with ``cluster="slurm"``.
     max_experiments_per_node: int
         Maximum number of experiments to run within a single SLURM job.
+        If -1, all experiments are packed into a single job (no grouping).
+    max_experiments_running_per_node: int
+        Maximum number of experiments to run concurrently on the same node.
+        If -1, it defaults to `max_experiments_per_node` (i.e., all experiments in the same job run concurrently).
     only_return_configs: bool
         If True, return the list of MetaExperiment without submitting them.
     max_workers: int
@@ -133,7 +171,7 @@ def run_multiple_per_node(
     ), "This function is designed for SLURM execution"
     original_infra = first.infra.model_dump(mode="python")
     experiments = [
-        exp.infra.clone_obj({"infra": {"cluster": "local"}}) for exp in experiments
+        exp.infra.clone_obj({"infra": {"cluster": None}}) for exp in experiments
     ]
 
     # Sort by dataset > backbone > finetuning > head so that experiments
@@ -145,13 +183,18 @@ def run_multiple_per_node(
         ),
     )
     n = max_experiments_per_node
-    n_groups = math.ceil(len(sorted_experiments) / n)
-    groups = [sorted_experiments[i * n : (i + 1) * n] for i in range(n_groups)]
+    if n > 0:
+        n_groups = math.ceil(len(sorted_experiments) / n)
+        groups = [sorted_experiments[i * n : (i + 1) * n] for i in range(n_groups)]
+    else:
+        groups = [sorted_experiments]
 
     # Wrap each group into a MetaExperiment submitted as one SLURM job.
     meta_experiments = [
         MetaExperiment(
-            experiments=group, wait=True, infra=original_infra  # type: ignore
+            experiments=group,
+            infra=original_infra,  # type: ignore
+            n_jobs=max_experiments_running_per_node,
         )
         for group in groups
     ]
