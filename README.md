@@ -1,5 +1,11 @@
 # 🧠 Open EEG Bench
 
+[![HuggingFace Hub](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Space-yellow)](https://huggingface.co/spaces/braindecode/OpenEEGBench)
+[![PyPI version](https://img.shields.io/pypi/v/open-eeg-bench.svg)](https://pypi.org/project/open-eeg-bench/)
+[![Tests](https://github.com/braindecode/OpenEEGBench/actions/workflows/main.yml/badge.svg)](https://github.com/braindecode/OpenEEGBench/actions/workflows/main.yml)
+[![Python versions](https://img.shields.io/pypi/pyversions/open-eeg-bench.svg)](https://pypi.org/project/open-eeg-bench/)
+
+
 **Benchmark any EEG foundation model with one function call.**
 
 ## ✨ Why Open EEG Bench?
