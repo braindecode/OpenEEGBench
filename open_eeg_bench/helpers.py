@@ -174,7 +174,9 @@ def run_multiple_per_node(
         ):
             continue
         skip_list[i] = True
-        print(f"Skipping experiment {i} with status {status} and mode {exp.infra.mode}")
+        print(
+            f"Skipping experiment {i} with status '{status}' and mode '{exp.infra.mode}'"
+        )
 
     # Save the SLURM infra, then switch experiments to local execution
     # (they will run locally *inside* the SLURM job), and filter out experiments
@@ -183,7 +185,12 @@ def run_multiple_per_node(
     assert (
         first.infra.cluster == "slurm"
     ), "This function is designed for SLURM execution"
-    original_infra = first.infra.model_dump(mode="python")
+    original_infra = first.infra.model_dump(
+        mode="python",
+        exclude_computed_fields=True,
+        exclude_defaults=True,
+        exclude_unset=True,
+    )
     experiments = [
         exp.infra.clone_obj({"infra": {"cluster": None}})
         for exp, skip in zip(experiments, skip_list)
