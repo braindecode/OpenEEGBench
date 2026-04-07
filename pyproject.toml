@@ -9,6 +9,10 @@ description = "Benchmarking parameter-efficient fine-tuning of EEG foundation mo
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "BSD-3-Clause"}
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
 
 dependencies = [
     "braindecode[hub]>=1.4.0",
