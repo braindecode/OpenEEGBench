@@ -190,6 +190,8 @@ def run_multiple_per_node(
         groups = [sorted_experiments]
 
     # Wrap each group into a MetaExperiment submitted as one SLURM job.
+    meta_infra = dict(original_infra)
+    meta_infra["mode"] = "force"
     meta_experiments = [
         MetaExperiment(
             experiments=group,
