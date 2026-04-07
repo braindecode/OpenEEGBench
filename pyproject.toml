@@ -23,6 +23,12 @@ dependencies = [
     "wandb",
 ]
 
+[project.urls]
+Homepage = "https://huggingface.co/spaces/braindecode/OpenEEGBench"
+Repository = "https://github.com/braindecode/OpenEEGBench.git"
+Issues = "https://github.com/braindecode/OpenEEGBench/issues"
+Changelog = "https://github.com/braindecode/OpenEEGBench/blob/master/CHANGELOG.md"
+
 [project.optional-dependencies]
 benchopt = [
     "benchopt>=1.9",
