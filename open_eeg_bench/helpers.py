@@ -195,7 +195,7 @@ def run_multiple_per_node(
     meta_experiments = [
         MetaExperiment(
             experiments=group,
-            infra=original_infra,  # type: ignore
+            infra=meta_infra,  # type: ignore
             n_jobs=max_experiments_running_per_node,
         )
         for group in groups
