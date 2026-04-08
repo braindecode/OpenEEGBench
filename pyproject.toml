@@ -8,10 +8,16 @@ version = "0.2.1"
 description = "Benchmarking parameter-efficient fine-tuning of EEG foundation models"
 readme = "README.md"
 requires-python = ">=3.11"
-license = {text = "BSD-3-Clause"}
+license = { text = "BSD-3-Clause" }
 classifiers = [
-    "Programming Language :: Python :: 3",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    'Programming Language :: Python :: 3.11',
+    'Programming Language :: Python :: 3.12',
+    'Programming Language :: Python :: 3.13',
+    'Programming Language :: Python :: 3.14',
     "Operating System :: OS Independent",
+    "License :: OSI Approved :: BSD License",
 ]
 
 dependencies = [
@@ -34,13 +40,8 @@ Issues = "https://github.com/braindecode/OpenEEGBench/issues"
 Changelog = "https://github.com/braindecode/OpenEEGBench/blob/master/CHANGELOG.md"
 
 [project.optional-dependencies]
-benchopt = [
-    "benchopt>=1.9",
-]
-dev = [
-    "pytest",
-    "pytest-cov",
-]
+benchopt = ["benchopt>=1.9"]
+dev = ["pytest", "pytest-cov"]
 
 [tool.setuptools.packages.find]
 where = ["."]
