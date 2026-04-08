@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- not yet
+- Add `max_meta_experiments` argument to `helpers.run_multiple_per_node()` as alternative to `max_experiments_per_node` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
 
 ### Changed
 - not yet
