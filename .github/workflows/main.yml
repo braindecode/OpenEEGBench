@@ -40,4 +40,6 @@ jobs:
         run: uv sync --extra dev
 
       - name: Run pytest
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
         run: uv run pytest --cov=open_eeg_bench --cov-report=term-missing
