@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- not yet
+- Add pytest to the CI workflow to run tests on each pull request ([#18](https://github.com/braindecode/OpenEEGBench/pull/18)).
 
 ### Changed
 - not yet
