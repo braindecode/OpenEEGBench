@@ -180,7 +180,9 @@ def run_multiple_per_node(
         print(
             f"Skipping experiment {i} with status '{status}' and mode '{exp.infra.mode}'"
         )
-    print(f"{sum(skip_list)}/{len(experiments)} experiments will be skipped.")
+    print(
+        f"===\nSkipping {sum(skip_list)}/{len(experiments)} experiments in total.\n==="
+    )
 
     # Save the SLURM infra, then switch experiments to local execution
     # (they will run locally *inside* the SLURM job), and filter out experiments
@@ -230,6 +232,10 @@ def run_multiple_per_node(
         )
         for group in groups
     ]
+    print(
+        f"Generated {len(meta_experiments)} meta-experiments which contain "
+        f"{[len(me.experiments) for me in meta_experiments]} experiments each."
+    )
 
     if only_return_configs:
         return meta_experiments
