@@ -180,6 +180,7 @@ def run_multiple_per_node(
         print(
             f"Skipping experiment {i} with status '{status}' and mode '{exp.infra.mode}'"
         )
+    print(f"{sum(skip_list)}/{len(experiments)} experiments will be skipped.")
 
     # Save the SLURM infra, then switch experiments to local execution
     # (they will run locally *inside* the SLURM job), and filter out experiments
