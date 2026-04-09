@@ -74,6 +74,9 @@ class Experiment(BaseModel):
         import numpy as np
         import torch
 
+        experiment_desc = self.infra.config(uid=False, exclude_defaults=False).to_yaml()
+        log.info(f"Running experiment:\n{experiment_desc}")
+
         # ===============================================================
         # 0. Seed EVERYTHING for reproducibility
         # ===============================================================
