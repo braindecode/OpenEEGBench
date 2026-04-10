@@ -12,7 +12,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `max_meta_experiments` argument to `helpers.run_multiple_per_node()` as alternative to `max_experiments_per_node` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
 
 ### Changed
-- not yet
+- Popularize the use of `import open_eeg_bench as oeb` via the README and documentation ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
+- Improve import hints via the `__all__` variable in `__init__.py` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
 
 ### Fixed
 - not yet
