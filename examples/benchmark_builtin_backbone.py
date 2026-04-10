@@ -4,12 +4,11 @@ This example uses the BIOT backbone factory from default_configs, which
 bundles the correct model_kwargs, normalization, and PEFT target modules.
 """
 
-from open_eeg_bench import benchmark
-from open_eeg_bench.default_configs.backbones import biot
+import open_eeg_bench as oeb
 
-backbone = biot()
+backbone = oeb.default_configs.backbones.biot()
 
-results = benchmark(
+results = oeb.benchmark(
     model_cls=backbone.model_cls,
     hub_repo=backbone.hub_repo,
     model_kwargs=backbone.model_kwargs,

@@ -14,5 +14,9 @@ Open EEG Bench ships with the following pretrained EEG foundation models:
 These are available as factory functions in `open_eeg_bench.default_configs.backbones`:
 
 ```python
-from open_eeg_bench.default_configs.backbones import biot, labram, bendr, cbramod, signaljepa, reve
+import open_eeg_bench as oeb
+
+oeb.default_configs.backbones.biot()
+oeb.default_configs.backbones.labram()
+# etc.
 ```

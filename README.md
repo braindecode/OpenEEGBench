@@ -25,9 +25,9 @@ pip install open-eeg-bench
 ## 🏁 Benchmark your model
 
 ```python
-from open_eeg_bench import benchmark
+import open_eeg_bench as oeb
 
-results = benchmark(
+results = oeb.benchmark(
     model_cls="my_package.MyModel",  # import path to your model class
     checkpoint_url="https://my-weights.pth",
 )
@@ -40,7 +40,7 @@ This runs linear probing on **all 12 datasets** and returns a DataFrame with one
 You can pick specific datasets, fine-tuning strategies, classification heads and number of initialization seeds:
 
 ```python
-results = benchmark(
+results = oeb.benchmark(
     model_cls="my_package.MyModel",
     checkpoint_url="https://my-weights.pth",
     datasets=["arithmetic_zyma2019", "bcic2a", "physionet"],

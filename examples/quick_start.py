@@ -4,9 +4,9 @@ This is the simplest way to verify that the benchmark runs end-to-end.
 It evaluates BIOT with frozen linear probing on arithmetic_zyma2019.
 """
 
-from open_eeg_bench import benchmark
+import open_eeg_bench as oeb
 
-results = benchmark(
+results = oeb.benchmark(
     model_cls="braindecode.models.BIOT",
     hub_repo="braindecode/biot-pretrained-prest-16chs",
     model_kwargs=dict(

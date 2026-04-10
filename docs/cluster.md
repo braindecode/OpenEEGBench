@@ -14,9 +14,9 @@ import os
 # Point HuggingFace cache to a filesystem with enough space:
 os.environ.setdefault("HF_HOME", "/path/to/large/storage/hf_cache")
 
-from open_eeg_bench import benchmark
+import open_eeg_bench as oeb
 
-results = benchmark(
+results = oeb.benchmark(
     model_cls="my_package.MyModel",
     checkpoint_url="https://my-weights.pth",
     device="cuda",
