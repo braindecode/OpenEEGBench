@@ -77,9 +77,12 @@ def bendr(**overrides) -> PretrainedBackbone:
             projection_head=False,
             start_token=-5,
             final_layer=True,
+            n_chans_pretrained=20,
+            encoder_only=True,
         ),
         peft_target_modules=["out_proj", "linear1", "linear2"],
         peft_ff_modules=["linear1", "linear2"],
+        training_required_modules=["channel_projection"],
         normalization=MinMaxScale(),
         hub_repo="braindecode/braindecode-bendr",
     )
