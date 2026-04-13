@@ -1,4 +1,3 @@
-from open_eeg_bench.default_configs import backbones, datasets, experiments
 from open_eeg_bench.default_configs.backbones import ALL_BACKBONES
 from open_eeg_bench.default_configs.datasets import ALL_DATASETS
 from open_eeg_bench.finetuning import (
