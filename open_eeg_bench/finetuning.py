@@ -43,8 +43,10 @@ def _nn_types(*names: str) -> tuple:
     return tuple(getattr(nn, n) for n in names)
 
 
-def _filter_targets(model, target_modules: list[str], supported: tuple) -> list[str]:
+def _filter_targets(model, target_modules: list[str]|Literal['all-linear'] | None, supported: tuple) -> list[str]|Literal['all-linear']|None:
     """Keep only *target_modules* whose underlying layer is an instance of *supported*."""
+    if target_modules is None or target_modules == "all-linear":
+        return target_modules
     valid = set()
     for name, module in model.named_modules():
         if not isinstance(module, supported):
@@ -92,7 +94,7 @@ class LoRA(BaseModel):
 
         modules_to_save = backbone.get_training_required_modules()
         target_modules = _filter_targets(
-            model, list(backbone.peft_target_modules),
+            model, backbone.peft_target_modules,
             _nn_types("Linear", "Conv1d", "Conv2d", "Conv3d", "Embedding", "MultiheadAttention"),
         )
         cfg = PeftLoraConfig(
@@ -119,7 +121,7 @@ class IA3(BaseModel):
 
         modules_to_save = backbone.get_training_required_modules()
         ff_modules = backbone.peft_ff_modules or None
-        target_modules = list(backbone.peft_target_modules)
+        target_modules = backbone.peft_target_modules
         if ff_modules:
             target_modules = list(set(target_modules) | set(ff_modules))
         target_modules = _filter_targets(model, target_modules, _nn_types("Linear", "Conv2d", "Conv3d"))
@@ -156,7 +158,7 @@ class AdaLoRA(BaseModel):
         from peft import AdaLoraConfig as PeftAdaLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
-        target_modules = _filter_targets(model, list(backbone.peft_target_modules), _nn_types("Linear"))
+        target_modules = _filter_targets(model, backbone.peft_target_modules, _nn_types("Linear"))
         cfg = PeftAdaLoraConfig(
             r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
             target_modules=target_modules, modules_to_save=modules_to_save,
@@ -185,7 +187,7 @@ class DoRA(BaseModel):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
-        target_modules = _filter_targets(model, list(backbone.peft_target_modules), _nn_types("Linear", "Conv1d", "Conv2d", "Conv3d", "Embedding"))
+        target_modules = _filter_targets(model, backbone.peft_target_modules, _nn_types("Linear", "Conv1d", "Conv2d", "Conv3d", "Embedding"))
         cfg = PeftLoraConfig(
             r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
             target_modules=target_modules,
@@ -213,7 +215,7 @@ class OFT(BaseModel):
         from peft import OFTConfig as PeftOFTConfig
 
         modules_to_save = backbone.get_training_required_modules()
-        target_modules = _filter_targets(model, list(backbone.peft_target_modules), _nn_types("Linear", "Conv2d"))
+        target_modules = _filter_targets(model, backbone.peft_target_modules, _nn_types("Linear", "Conv2d"))
         cfg = PeftOFTConfig(
             oft_block_size=self.block_size, target_modules=target_modules,
             module_dropout=self.module_dropout, coft=self.coft,
