@@ -130,7 +130,8 @@ def run_many_with_queue(
 
 def run_multiple_per_node(
     experiments: list[Experiment],
-    max_experiments_per_node: int = 10,
+    max_experiments_per_node: int | None = 10,
+    max_meta_experiments: int | None = None,
     max_experiments_running_per_node: int = -1,
     only_return_configs: bool = False,
     max_workers: int = 256,
@@ -153,6 +154,9 @@ def run_multiple_per_node(
     max_experiments_per_node: int
         Maximum number of experiments to run within a single SLURM job.
         If -1, all experiments are packed into a single job (no grouping).
+    max_meta_experiments: int | None
+        Maximum number of MetaExperiments to create.
+        Mutually exclusive with max_experiments_per_node.
     max_experiments_running_per_node: int
         Maximum number of experiments to run concurrently on the same node.
         If -1, it defaults to `max_experiments_per_node` (i.e., all experiments in the same job run concurrently).
@@ -165,6 +169,10 @@ def run_multiple_per_node(
     """
     if len(experiments) == 0:
         return None
+    if (max_experiments_per_node is not None) == (max_meta_experiments is not None):
+        raise ValueError(
+            "Exactly one of max_experiments_per_node or max_meta_experiments must be set"
+        )
 
     # Figure out which experiments to skip
     skip_list = [False] * len(experiments)
@@ -211,12 +219,22 @@ def run_multiple_per_node(
         )
 
     # Create groups of experiments to run together on the same node
-    n = max_experiments_per_node
-    if n > 0:
-        n_groups = math.ceil(len(experiments) / n)
-        groups = [experiments[i * n : (i + 1) * n] for i in range(n_groups)]
+    if max_experiments_per_node is not None and max_meta_experiments is None:
+        if max_experiments_per_node == -1:
+            n_groups = 1
+            group_size = len(experiments)
+        else:
+            n_groups = math.ceil(len(experiments) / max_experiments_per_node)
+            group_size = math.ceil(len(experiments) / n_groups)
+    elif max_meta_experiments is not None and max_experiments_per_node is None:
+        group_size = math.ceil(len(experiments) / max_meta_experiments)
+        n_groups = math.ceil(len(experiments) / group_size)
     else:
-        groups = [experiments]
+        raise ValueError("Invalid arguments")
+    assert group_size * n_groups >= len(experiments)  # sanity check
+    groups = [
+        experiments[i * group_size : (i + 1) * group_size] for i in range(n_groups)
+    ]
 
     # Wrap each group into a MetaExperiment submitted as one SLURM job.
     meta_infra = dict(original_infra)

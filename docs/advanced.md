@@ -5,19 +5,14 @@
 The `benchmark()` function covers most use cases, but if you need full control over every parameter, use the `Experiment` class directly:
 
 ```python
-from open_eeg_bench.experiment import Experiment
-from open_eeg_bench.default_configs.backbones import biot
-from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
-from open_eeg_bench.head import LinearHead
-from open_eeg_bench.finetuning import Frozen, LoRA
-from open_eeg_bench.training import Training
+import open_eeg_bench as oeb
 
-experiment = Experiment(
-    backbone=biot(),
-    head=LinearHead(),
-    finetuning=Frozen(),
-    dataset=arithmetic_zyma2019(),
-    training=Training(max_epochs=30, device="cpu"),
+experiment = oeb.experiment.Experiment(
+    backbone=oeb.default_configs.backbones.biot(),
+    head=oeb.head.LinearHead(),
+    finetuning=oeb.finetuning.Frozen(),
+    dataset=oeb.default_configs.datasets.arithmetic_zyma2019(),
+    training=oeb.training.Training(max_epochs=30, device="cpu"),
 )
 results = experiment.run()
 print(f"Test accuracy: {results['test_balanced_accuracy']:.2%}")

@@ -74,6 +74,9 @@ class Experiment(BaseModel):
         import numpy as np
         import torch
 
+        experiment_desc = self.infra.config(uid=False, exclude_defaults=False).to_yaml()
+        log.info(f"Running experiment:\n{experiment_desc}")
+
         # ===============================================================
         # 0. Seed EVERYTHING for reproducibility
         # ===============================================================
@@ -129,6 +132,11 @@ class Experiment(BaseModel):
             sfreq=info["sfreq"],
             chs_info=info["chs_info"],
         )
+        
+        # ===============================================================
+        # 2.1. Initialize lazy modules with a dummy forward pass
+        # ===============================================================
+        self._initialize_lazy_modules(model, info)
 
         # ===============================================================
         # 3. Apply head
@@ -136,12 +144,12 @@ class Experiment(BaseModel):
         self.head.apply(model, info["n_outputs"], backbone_obj.head_module_name)
 
         # ===============================================================
-        # 4. Initialize lazy modules with a dummy forward pass
+        # 3.1. Initialize lazy modules with a dummy forward pass
         # ===============================================================
         self._initialize_lazy_modules(model, info)
 
         # ===============================================================
-        # 5. Apply finetuning
+        # 4. Apply finetuning
         # ===============================================================
         finetuning = self.finetuning
         if isinstance(finetuning, AdaLoRA) and finetuning.total_step is None:
@@ -168,12 +176,12 @@ class Experiment(BaseModel):
         )
 
         # ===============================================================
-        # 6. Get skorch callbacks from the finetuning
+        # 5. Get skorch callbacks from the finetuning
         # ===============================================================
         callbacks = self.finetuning.get_callbacks()
 
         # ===============================================================
-        # 7. Create learner and train
+        # 6. Create learner and train
         # ===============================================================
         learner = self.training.build_learner(
             model=model,
@@ -184,7 +192,7 @@ class Experiment(BaseModel):
         learner.fit(train_set, y=None)
 
         # ===============================================================
-        # 8. Test
+        # 7. Test
         # ===============================================================
         results = {"adapter_stats": adapter_stats}
         y_pred = learner.predict(test_set)
@@ -258,9 +266,7 @@ def collect_completed_results(
             # https://github.com/facebookincubator/submitit/blob/ca51a66b6da2400468f338133eabdfb4c9a2936c/submitit/core/core.py#L373
             return ex.splitlines()[0]
         last_line = ex.strip().splitlines()[-1]
-        if "err" in last_line.lower():
-            return last_line
-        raise ValueError(f"Unexpected failure exception format: {ex}")
+        return last_line
 
     rows = []
     status_counts = {}
