@@ -69,6 +69,42 @@ class _BackboneBase(BaseModel):
         """Instantiate the backbone model."""
         raise NotImplementedError
 
+    def _check_layers_exist(self, model):
+        """Verify that all configured module names exist in the model.
+        
+        This test can only be done once the model has been instantiated.
+        """
+        module_names = {name for name, _ in model.named_modules()}
+        fields = {
+            "head_module_name": [self.head_module_name],
+            "peft_target_modules": self.peft_target_modules,
+            "peft_ff_modules": self.peft_ff_modules,
+            "training_required_modules": self.training_required_modules,
+        }
+        for field, names in fields.items():
+            for name in names:
+                # Allow short names that match a suffix (e.g. "qkv" matches "encoder.layer.0.qkv")
+                if name not in module_names and not any(
+                    n == name or n.endswith("." + name) for n in module_names
+                ):
+                    raise ValueError(
+                        f"{type(self).__name__}.{field} references module '{name}' "
+                        f"which does not exist in the model."
+                    )
+
+    def build(
+        self,
+        n_chans: int,
+        n_times: int,
+        n_outputs: int,
+        sfreq: float,
+        chs_info: list | None = None,
+    ):
+        """Instantiate the backbone model."""
+        model = self._build(n_chans, n_times, n_outputs, sfreq, chs_info)
+        self._check_layers_exist(model)
+        return model
+
 
 # ============================================================================
 # Concrete backbone configs
@@ -115,7 +151,7 @@ class PretrainedBackbone(_BackboneBase):
         module = import_module(module_path)
         return getattr(module, cls_name)
 
-    def build(
+    def _build(
         self,
         n_chans: int,
         n_times: int,
