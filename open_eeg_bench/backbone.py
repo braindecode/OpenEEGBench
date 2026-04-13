@@ -38,7 +38,20 @@ class _BackboneBase(BaseModel):
     )
     head_module_name: str = Field(
         default="final_layer",
-        description="Name of the classification head module in the model.",
+        description=(
+            "Name of the classification head module in the model. "
+            "This layer will be discarded and replaced with a new head during finetuning."
+        ),
+    )
+    training_required_modules: list[str] = Field(
+        default_factory=list,
+        description=(
+            "Module names to always train, even in 'frozen' finetuning mode "
+            "(where by default only final_layer is trained). "
+            "Leave empty unless the backbone needs an adaptation layer for unseen channels. "
+            "Warning: models using this field are categorized separately in evaluations, "
+            "since training extra layers is not comparable to training only a classification head."
+        ),
     )
     normalization: Normalization = Field(
         default=NoNormalization(),
