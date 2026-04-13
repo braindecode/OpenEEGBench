@@ -28,12 +28,12 @@ class _BackboneBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # --- Coupling fields (queried by finetuning / head / dataset) ---
-    peft_target_modules: list[str] = Field(
-        default_factory=list,
+    peft_target_modules: list[str] | Literal["all-linear"] | None = Field(
+        default="all-linear",
         description="Module names to target for PEFT adapters (LoRA, IA3, etc.).",
     )
-    peft_ff_modules: list[str] = Field(
-        default_factory=list,
+    peft_ff_modules: list[str] | None = Field(
+        default=None,
         description="Feedforward module names for IA3.",
     )
     head_module_name: str = Field(
@@ -43,8 +43,8 @@ class _BackboneBase(BaseModel):
             "This layer will be discarded and replaced with a new head during finetuning."
         ),
     )
-    training_required_modules: list[str] = Field(
-        default_factory=list,
+    training_required_modules: list[str] | None = Field(
+        default=None,
         description=(
             "Module names to always train, even in 'frozen' finetuning mode "
             "(where by default only final_layer is trained). "
@@ -87,12 +87,16 @@ class _BackboneBase(BaseModel):
         This test can only be done once the model has been instantiated.
         """
         module_names = {name for name, _ in model.named_modules()}
-        module_fields = {
-            "head_module_name": [self.head_module_name],
-            "peft_target_modules": self.peft_target_modules,
-            "peft_ff_modules": self.peft_ff_modules,
-            "training_required_modules": self.training_required_modules,
-        }
+        module_fields = {"head_module_name": [self.head_module_name]}
+        if (
+            self.peft_target_modules is not None
+            and self.peft_target_modules != "all-linear"
+        ):
+            module_fields["peft_target_modules"] = self.peft_target_modules
+        if self.peft_ff_modules is not None:
+            module_fields["peft_ff_modules"] = self.peft_ff_modules
+        if self.training_required_modules is not None:
+            module_fields["training_required_modules"] = self.training_required_modules
         for field, names in module_fields.items():
             for name in names:
                 # Allow short names that match a suffix (e.g. "qkv" matches "encoder.layer.0.qkv")
@@ -271,4 +275,3 @@ class PlaceholderBackbone(_BackboneBase):
     """
 
     kind: Literal["placeholder"] = "placeholder"
-    peft_target_modules: list[str] = []
