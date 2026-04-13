@@ -30,14 +30,11 @@ def _param_stats(model) -> dict[str, Any]:
     }
 
 
-def _resolve_modules_to_save(model, head_module_name: str) -> list[str] | None:
+def _resolve_modules_to_save(model, head_module_name: str) -> list[str]:
     """Auto-detect the head module to keep trainable under PEFT."""
-    if hasattr(model, head_module_name):
-        return [head_module_name]
-    for candidate in ("final_layer", "classifier", "head"):
-        if hasattr(model, candidate):
-            return [candidate]
-    return None
+    if not hasattr(model, head_module_name):
+        raise ValueError(f"Model does not have head module '{head_module_name}'")
+    return [head_module_name]
 
 
 def _filter_linear_targets(model, target_modules: list[str]) -> list[str]:
