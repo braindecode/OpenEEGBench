@@ -91,7 +91,7 @@ class LoRA(BaseModel):
     r: int = 16
     alpha: int = 32
     dropout: float = 0.1
-    bias: str = "all"
+    bias: Literal["none", "all", "lora_only"] = "none"
 
     def apply(self, model, backbone):
         from peft import LoraConfig as PeftLoraConfig
@@ -220,7 +220,7 @@ class DoRA(BaseModel):
     r: int = 8
     alpha: int = 16
     dropout: float = 0.1
-    bias: str = "none"
+    bias: Literal["none", "all", "lora_only"] = "none"
 
     def apply(self, model, backbone):
         from peft import LoraConfig as PeftLoraConfig
