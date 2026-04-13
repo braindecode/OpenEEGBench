@@ -23,7 +23,6 @@ def biot(**overrides) -> PretrainedBackbone:
             max_seq_len=1024,
             return_feature=False,
         ),
-        peft_target_modules=["to_q", "to_k", "to_v", "to_out", "w1", "w2"],
         # w1, w2 are the two Linear layers inside FeedForward blocks
         peft_ff_modules=["w1", "w2"],
         normalization=PercentileScale(q=95.0),
@@ -53,7 +52,6 @@ def labram(**overrides) -> PretrainedBackbone:
             init_values=0.1,
             neural_tokenizer=True,
         ),
-        peft_target_modules=["qkv", "proj", "mlp.0", "mlp.2"],
         # mlp.0 and mlp.2 are the two Linear layers inside the MLP block
         peft_ff_modules=["mlp.0", "mlp.2"],
         normalization=DivideByConstant(factor=100.0),
@@ -82,7 +80,6 @@ def bendr(**overrides) -> PretrainedBackbone:
             n_chans_pretrained=20,
             encoder_only=True,
         ),
-        peft_target_modules=["out_proj", "linear1", "linear2"],
         # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         training_required_modules=["channel_projection"],
@@ -110,12 +107,6 @@ def cbramod(**overrides) -> PretrainedBackbone:
             ],
             return_encoder_output=False,
         ),
-        peft_target_modules=[
-            "self_attn_s",
-            "self_attn_t",
-            "linear1",
-            "linear2",
-        ],
         # linear1, linear2 are the FFN layers in CrissCrossTransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         normalization=DivideByConstant(factor=100.0),
@@ -147,13 +138,6 @@ def signal_jepa(**overrides) -> PretrainedBackbone:
             transformer__nhead=8,
             drop_prob=0.0,
         ),
-        peft_target_modules=[
-            "linear1",
-            "linear2",
-            "self_attn.q_proj_weight",
-            "self_attn.k_proj_weight",
-            "self_attn.v_proj_weight",
-        ],
         # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         checkpoint_url="https://huggingface.co/braindecode/SignalJEPA/resolve/main/signal-jepa_16s-60_adeuwv4s.pth",
@@ -176,7 +160,6 @@ def reve(**overrides) -> PretrainedBackbone:
             patch_overlap=20,
             attention_pooling=False,
         ),
-        peft_target_modules=["to_qkv", "to_out", "net.1", "net.3"],
         # net.1, net.3 are the two Linear layers inside FeedForward.net
         peft_ff_modules=["net.1", "net.3"],
         normalization=WindowZScore(clip_sigma=15.0),

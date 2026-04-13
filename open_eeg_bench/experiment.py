@@ -132,7 +132,7 @@ class Experiment(BaseModel):
             sfreq=info["sfreq"],
             chs_info=info["chs_info"],
         )
-        
+
         # ===============================================================
         # 2.1. Initialize lazy modules with a dummy forward pass
         # ===============================================================
