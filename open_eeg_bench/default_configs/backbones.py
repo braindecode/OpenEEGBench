@@ -24,6 +24,7 @@ def biot(**overrides) -> PretrainedBackbone:
             return_feature=False,
         ),
         peft_target_modules=["to_q", "to_k", "to_v", "to_out", "w1", "w2"],
+        # w1, w2 are the two Linear layers inside FeedForward blocks
         peft_ff_modules=["w1", "w2"],
         normalization=PercentileScale(q=95.0),
         hub_repo="braindecode/biot-pretrained-prest-16chs",
@@ -53,6 +54,7 @@ def labram(**overrides) -> PretrainedBackbone:
             neural_tokenizer=True,
         ),
         peft_target_modules=["qkv", "proj", "mlp.0", "mlp.2"],
+        # mlp.0 and mlp.2 are the two Linear layers inside the MLP block
         peft_ff_modules=["mlp.0", "mlp.2"],
         normalization=DivideByConstant(factor=100.0),
         hub_repo="braindecode/labram-pretrained",
@@ -81,6 +83,7 @@ def bendr(**overrides) -> PretrainedBackbone:
             encoder_only=True,
         ),
         peft_target_modules=["out_proj", "linear1", "linear2"],
+        # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         training_required_modules=["channel_projection"],
         normalization=MinMaxScale(),
@@ -113,6 +116,7 @@ def cbramod(**overrides) -> PretrainedBackbone:
             "linear1",
             "linear2",
         ],
+        # linear1, linear2 are the FFN layers in CrissCrossTransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         normalization=DivideByConstant(factor=100.0),
         hub_repo="braindecode/cbramod-pretrained",
@@ -150,6 +154,7 @@ def signal_jepa(**overrides) -> PretrainedBackbone:
             "self_attn.k_proj_weight",
             "self_attn.v_proj_weight",
         ],
+        # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         checkpoint_url="https://huggingface.co/braindecode/SignalJEPA/resolve/main/signal-jepa_16s-60_adeuwv4s.pth",
     )
@@ -172,6 +177,7 @@ def reve(**overrides) -> PretrainedBackbone:
             attention_pooling=False,
         ),
         peft_target_modules=["to_qkv", "to_out", "net.1", "net.3"],
+        # net.1, net.3 are the two Linear layers inside FeedForward.net
         peft_ff_modules=["net.1", "net.3"],
         normalization=WindowZScore(clip_sigma=15.0),
         hub_repo="brain-bzh/reve-base",
