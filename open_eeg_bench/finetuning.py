@@ -20,39 +20,6 @@ if TYPE_CHECKING:
 log = logging.getLogger(__name__)
 
 
-def _get_peft_model_wrapper_class():
-    """Return the PeftModelWrapper class (lazy import of torch.nn)."""
-    import torch.nn as nn
-
-    class _PeftModelWrapper(nn.Module):
-        """Wraps a PEFT model so forward() calls the base model directly."""
-
-        def __init__(self, peft_model):
-            super().__init__()
-            self.peft_model = peft_model
-
-        def forward(self, *args, **kwargs):
-            return self.peft_model.base_model.model(*args, **kwargs)
-
-        def __getattr__(self, name: str):
-            if name in ("peft_model", "training"):
-                return super().__getattr__(name)
-            try:
-                return getattr(self.peft_model, name)
-            except AttributeError:
-                return getattr(self.peft_model.base_model.model, name)
-
-        def train(self, mode: bool = True):
-            super().train(mode)
-            self.peft_model.train(mode)
-            return self
-
-        def eval(self):
-            return self.train(False)
-
-    return _PeftModelWrapper
-
-
 def _param_stats(model) -> dict[str, Any]:
     total = sum(p.numel() for p in model.parameters())
     trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -100,14 +67,12 @@ def _filter_linear_targets(model, target_modules: list[str]) -> list[str]:
 
 
 def _apply_peft(model, peft_config):
-    """Apply PEFT config and wrap the model."""
+    """Apply PEFT config to the model."""
     from peft import get_peft_model
 
-    PeftModelWrapper = _get_peft_model_wrapper_class()
     peft_model = get_peft_model(model, peft_config)
     trainable, total = peft_model.get_nb_trainable_parameters()
-    wrapped = PeftModelWrapper(peft_model)
-    return wrapped, trainable, total
+    return peft_model, trainable, total
 
 
 # ============================================================================
