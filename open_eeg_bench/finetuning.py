@@ -141,12 +141,12 @@ class IA3(BaseModel):
         modules_to_save = backbone.get_training_required_modules()
         ff_modules = backbone.peft_ff_modules or None
         target_modules = backbone.peft_target_modules
-        if ff_modules:
+        if ff_modules and isinstance(target_modules, list) :
             target_modules = list(set(target_modules) | set(ff_modules))
         target_modules = _filter_targets(
             model, target_modules, _nn_types("Linear", "Conv2d", "Conv3d")
         )
-        if ff_modules:
+        if ff_modules and isinstance(target_modules, list):
             ff_modules = [m for m in ff_modules if m in target_modules]
         cfg = PeftIA3Config(
             target_modules=target_modules,
