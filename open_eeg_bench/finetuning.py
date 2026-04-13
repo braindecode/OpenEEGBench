@@ -90,7 +90,7 @@ class LoRA(BaseModel):
     def apply(self, model, backbone):
         from peft import LoraConfig as PeftLoraConfig
 
-        modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
+        modules_to_save = backbone.get_training_required_modules()
         cfg = PeftLoraConfig(
             r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
             target_modules=backbone.peft_target_modules,
@@ -113,7 +113,7 @@ class IA3(BaseModel):
     def apply(self, model, backbone):
         from peft import IA3Config as PeftIA3Config
 
-        modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
+        modules_to_save = backbone.get_training_required_modules()
         ff_modules = backbone.peft_ff_modules or None
         target_modules = list(backbone.peft_target_modules)
         if ff_modules:
@@ -179,7 +179,7 @@ class DoRA(BaseModel):
     def apply(self, model, backbone):
         from peft import LoraConfig as PeftLoraConfig
 
-        modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
+        modules_to_save = backbone.get_training_required_modules()
         # DoRA does not support MultiheadAttention; filter to Linear/Conv only
         target_modules = _filter_linear_targets(model, list(backbone.peft_target_modules))
         cfg = PeftLoraConfig(
@@ -208,7 +208,7 @@ class OFT(BaseModel):
     def apply(self, model, backbone):
         from peft import OFTConfig as PeftOFTConfig
 
-        modules_to_save = _resolve_modules_to_save(model, backbone.head_module_name)
+        modules_to_save = backbone.get_training_required_modules()
         target_modules = _filter_linear_targets(model, list(backbone.peft_target_modules))
         cfg = PeftOFTConfig(
             oft_block_size=self.block_size, target_modules=target_modules,
@@ -247,10 +247,11 @@ class Frozen(BaseModel):
     kind: Literal["frozen"] = "frozen"
 
     def apply(self, model, backbone):
-        head_name = backbone.head_module_name
+        modules_to_save = backbone.get_training_required_modules()
         for name, param in model.named_parameters():
-            if head_name not in name:
+            if not any(save_name in name for save_name in modules_to_save):
                 param.requires_grad = False
+        # TODO: set the rest of the modules to eval mode!
         return model, {**_param_stats(model), "method": "frozen"}
 
     def get_callbacks(self) -> list:
@@ -270,10 +271,11 @@ class TwoStages(BaseModel):
     n_epochs_frozen: int = 5
 
     def apply(self, model, backbone):
-        head_name = backbone.head_module_name
+        modules_to_save = backbone.get_training_required_modules()
         for name, param in model.named_parameters():
-            if head_name not in name:
+            if not any(save_name in name for save_name in modules_to_save):
                 param.requires_grad = False
+        # TODO: set the rest of the modules to eval mode!
         return model, {**_param_stats(model), "method": "frozen"}
 
     def get_callbacks(self) -> list:
