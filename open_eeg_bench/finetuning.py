@@ -40,10 +40,13 @@ def _resolve_modules_to_save(model, head_module_name: str) -> list[str]:
 def _nn_types(*names: str) -> tuple:
     """Return a tuple of ``torch.nn`` classes by name (lazy import)."""
     import torch.nn as nn
+
     return tuple(getattr(nn, n) for n in names)
 
 
-def _filter_targets(model, target_modules: list[str]|Literal['all-linear'] | None, supported: tuple) -> list[str]|Literal['all-linear']|None:
+def _filter_targets(
+    model, target_modules: list[str] | Literal["all-linear"] | None, supported: tuple
+) -> list[str] | Literal["all-linear"] | None:
     """Keep only *target_modules* whose underlying layer is an instance of *supported*."""
     if target_modules is None or target_modules == "all-linear":
         return target_modules
@@ -60,7 +63,8 @@ def _filter_targets(model, target_modules: list[str]|Literal['all-linear'] | Non
     if filtered_out:
         log.warning(
             "Filtered out unsupported target modules: %s (keeping: %s)",
-            sorted(filtered_out), sorted(valid),
+            sorted(filtered_out),
+            sorted(valid),
         )
     return sorted(valid)
 
@@ -94,17 +98,32 @@ class LoRA(BaseModel):
 
         modules_to_save = backbone.get_training_required_modules()
         target_modules = _filter_targets(
-            model, backbone.peft_target_modules,
-            _nn_types("Linear", "Conv1d", "Conv2d", "Conv3d", "Embedding", "MultiheadAttention"),
+            model,
+            backbone.peft_target_modules,
+            _nn_types(
+                "Linear",
+                "Conv1d",
+                "Conv2d",
+                "Conv3d",
+                "Embedding",
+                "MultiheadAttention",
+            ),
         )
         cfg = PeftLoraConfig(
-            r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
+            r=self.r,
+            lora_alpha=self.alpha,
+            lora_dropout=self.dropout,
             target_modules=target_modules,
-            bias=self.bias, modules_to_save=modules_to_save,
+            bias=self.bias,
+            modules_to_save=modules_to_save,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
-        return wrapped, {"method": "lora", "total_params": total,
-                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
+        return wrapped, {
+            "method": "lora",
+            "total_params": total,
+            "trainable_params": trainable,
+            "trainable_pct": 100.0 * trainable / total,
+        }
 
     def get_callbacks(self) -> list:
         return []
@@ -124,16 +143,23 @@ class IA3(BaseModel):
         target_modules = backbone.peft_target_modules
         if ff_modules:
             target_modules = list(set(target_modules) | set(ff_modules))
-        target_modules = _filter_targets(model, target_modules, _nn_types("Linear", "Conv2d", "Conv3d"))
+        target_modules = _filter_targets(
+            model, target_modules, _nn_types("Linear", "Conv2d", "Conv3d")
+        )
         if ff_modules:
             ff_modules = [m for m in ff_modules if m in target_modules]
         cfg = PeftIA3Config(
-            target_modules=target_modules, feedforward_modules=ff_modules or None,
+            target_modules=target_modules,
+            feedforward_modules=ff_modules or None,
             modules_to_save=modules_to_save,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
-        return wrapped, {"method": "ia3", "total_params": total,
-                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
+        return wrapped, {
+            "method": "ia3",
+            "total_params": total,
+            "trainable_params": trainable,
+            "trainable_pct": 100.0 * trainable / total,
+        }
 
     def get_callbacks(self) -> list:
         return []
@@ -158,16 +184,29 @@ class AdaLoRA(BaseModel):
         from peft import AdaLoraConfig as PeftAdaLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
-        target_modules = _filter_targets(model, backbone.peft_target_modules, _nn_types("Linear"))
+        target_modules = _filter_targets(
+            model, backbone.peft_target_modules, _nn_types("Linear")
+        )
         cfg = PeftAdaLoraConfig(
-            r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
-            target_modules=target_modules, modules_to_save=modules_to_save,
-            total_step=self.total_step, target_r=self.target_r, init_r=self.init_r,
-            tinit=self.tinit, tfinal=self.tfinal, deltaT=self.deltaT,
+            r=self.r,
+            lora_alpha=self.alpha,
+            lora_dropout=self.dropout,
+            target_modules=target_modules,
+            modules_to_save=modules_to_save,
+            total_step=self.total_step,
+            target_r=self.target_r,
+            init_r=self.init_r,
+            tinit=self.tinit,
+            tfinal=self.tfinal,
+            deltaT=self.deltaT,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
-        return wrapped, {"method": "adalora", "total_params": total,
-                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
+        return wrapped, {
+            "method": "adalora",
+            "total_params": total,
+            "trainable_params": trainable,
+            "trainable_pct": 100.0 * trainable / total,
+        }
 
     def get_callbacks(self) -> list:
         return []
@@ -187,15 +226,27 @@ class DoRA(BaseModel):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
-        target_modules = _filter_targets(model, backbone.peft_target_modules, _nn_types("Linear", "Conv1d", "Conv2d", "Conv3d", "Embedding"))
+        target_modules = _filter_targets(
+            model,
+            backbone.peft_target_modules,
+            _nn_types("Linear", "Conv1d", "Conv2d", "Conv3d", "Embedding"),
+        )
         cfg = PeftLoraConfig(
-            r=self.r, lora_alpha=self.alpha, lora_dropout=self.dropout,
+            r=self.r,
+            lora_alpha=self.alpha,
+            lora_dropout=self.dropout,
             target_modules=target_modules,
-            bias=self.bias, modules_to_save=modules_to_save, use_dora=True,
+            bias=self.bias,
+            modules_to_save=modules_to_save,
+            use_dora=True,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
-        return wrapped, {"method": "dora", "total_params": total,
-                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
+        return wrapped, {
+            "method": "dora",
+            "total_params": total,
+            "trainable_params": trainable,
+            "trainable_pct": 100.0 * trainable / total,
+        }
 
     def get_callbacks(self) -> list:
         return []
@@ -215,15 +266,24 @@ class OFT(BaseModel):
         from peft import OFTConfig as PeftOFTConfig
 
         modules_to_save = backbone.get_training_required_modules()
-        target_modules = _filter_targets(model, backbone.peft_target_modules, _nn_types("Linear", "Conv2d"))
+        target_modules = _filter_targets(
+            model, backbone.peft_target_modules, _nn_types("Linear", "Conv2d")
+        )
         cfg = PeftOFTConfig(
-            oft_block_size=self.block_size, target_modules=target_modules,
-            module_dropout=self.module_dropout, coft=self.coft,
-            block_share=self.block_share, modules_to_save=modules_to_save,
+            oft_block_size=self.block_size,
+            target_modules=target_modules,
+            module_dropout=self.module_dropout,
+            coft=self.coft,
+            block_share=self.block_share,
+            modules_to_save=modules_to_save,
         )
         wrapped, trainable, total = _apply_peft(model, cfg)
-        return wrapped, {"method": "oft", "total_params": total,
-                         "trainable_params": trainable, "trainable_pct": 100.0 * trainable / total}
+        return wrapped, {
+            "method": "oft",
+            "total_params": total,
+            "trainable_params": trainable,
+            "trainable_pct": 100.0 * trainable / total,
+        }
 
     def get_callbacks(self) -> list:
         return []
