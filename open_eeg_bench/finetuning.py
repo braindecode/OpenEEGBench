@@ -34,6 +34,21 @@ def _nn_types(*names: str) -> tuple:
     return tuple(getattr(nn, n) for n in names)
 
 
+def _disable_dropout(model):
+    import torch.nn as nn
+
+    dropout_types = (
+        nn.Dropout,
+        nn.Dropout1d,
+        nn.Dropout2d,
+        nn.Dropout3d,
+        nn.AlphaDropout,
+    )
+    for module in model.modules():
+        if isinstance(module, dropout_types):
+            module.p = 0.0
+
+
 def _filter_targets(
     model, target_modules: list[str] | Literal["all-linear"] | None, supported: tuple
 ) -> list[str] | Literal["all-linear"] | None:
@@ -68,22 +83,35 @@ def _apply_peft(model, peft_config):
     return peft_model, trainable, total
 
 
+class _BaseFinetuning(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    disable_backbone_dropout: bool = True
+
+    def _apply(self, model, backbone):
+        raise NotImplementedError
+
+    def apply(self, model, backbone):
+        if self.disable_backbone_dropout:
+            _disable_dropout(model)
+        wrapped, stats = self._apply(model, backbone)
+        return wrapped, stats
+
+
 # ============================================================================
 # Concrete strategies
 # ============================================================================
 
 
-class LoRA(BaseModel):
+class LoRA(_BaseFinetuning):
     """Low-Rank Adaptation."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["lora"] = "lora"
     r: int = 16
     alpha: int = 32
     dropout: float = 0.1
     bias: Literal["none", "all", "lora_only"] = "none"
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
@@ -119,13 +147,12 @@ class LoRA(BaseModel):
         return []
 
 
-class IA3(BaseModel):
+class IA3(_BaseFinetuning):
     """Infused Adapter by Inhibiting and Amplifying Inner Activations."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["ia3"] = "ia3"
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         from peft import IA3Config as PeftIA3Config
 
         modules_to_save = backbone.get_training_required_modules()
@@ -155,10 +182,9 @@ class IA3(BaseModel):
         return []
 
 
-class AdaLoRA(BaseModel):
+class AdaLoRA(_BaseFinetuning):
     """Adaptive Low-Rank Adaptation with dynamic rank allocation."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["adalora"] = "adalora"
     r: int = 8
     alpha: int = 16
@@ -170,7 +196,7 @@ class AdaLoRA(BaseModel):
     tfinal: int = 1000
     deltaT: int = 10
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         from peft import AdaLoraConfig as PeftAdaLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
@@ -202,17 +228,16 @@ class AdaLoRA(BaseModel):
         return []
 
 
-class DoRA(BaseModel):
+class DoRA(_BaseFinetuning):
     """Weight-Decomposed Low-Rank Adaptation."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["dora"] = "dora"
     r: int = 8
     alpha: int = 16
     dropout: float = 0.1
     bias: Literal["none", "all", "lora_only"] = "none"
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
@@ -242,17 +267,16 @@ class DoRA(BaseModel):
         return []
 
 
-class OFT(BaseModel):
+class OFT(_BaseFinetuning):
     """Orthogonal Fine-Tuning."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["oft"] = "oft"
     block_size: int = 8
     module_dropout: float = 0.0
     coft: bool = False
     block_share: bool = False
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         from peft import OFTConfig as PeftOFTConfig
 
         modules_to_save = backbone.get_training_required_modules()
@@ -279,42 +303,39 @@ class OFT(BaseModel):
         return []
 
 
-class FullFinetune(BaseModel):
+class FullFinetune(_BaseFinetuning):
     """Train all parameters (no adapters)."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["full"] = "full"
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         return model, {**_param_stats(model), "method": "full"}
 
     def get_callbacks(self) -> list:
         return []
 
 
-class Frozen(BaseModel):
+class Frozen(_BaseFinetuning):
     """Freeze the encoder, train only the head.
 
     Returns a model in which all parameters
     whose name does *not* contain the head module name are frozen.
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["frozen"] = "frozen"
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         modules_to_save = backbone.get_training_required_modules()
         for name, param in model.named_parameters():
             if not any(save_name in name for save_name in modules_to_save):
                 param.requires_grad = False
-        # TODO: set the rest of the modules to eval mode!
         return model, {**_param_stats(model), "method": "frozen"}
 
     def get_callbacks(self) -> list:
         return []
 
 
-class TwoStages(BaseModel):
+class TwoStages(_BaseFinetuning):
     """Two-stage training: frozen backbone for N epochs, then unfreeze and train all.
 
     Returns a model in which all parameters
@@ -322,11 +343,10 @@ class TwoStages(BaseModel):
     After N epochs, an Unfreezer callback will unfreeze the whole model for the rest of training.
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["two_stages"] = "two_stages"
     n_epochs_frozen: int = 5
 
-    def apply(self, model, backbone):
+    def _apply(self, model, backbone):
         modules_to_save = backbone.get_training_required_modules()
         for name, param in model.named_parameters():
             if not any(save_name in name for save_name in modules_to_save):

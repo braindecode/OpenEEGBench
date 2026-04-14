@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Improve import hints via the `__all__` variable in `__init__.py` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
 - All backbones now use `peft_target_modules="all-linear"` by default for simplicity, which leads to a slight increase in the number of parameters being finetuned ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 - Change default `LoRA.bias` to "none" to match PEFT's default ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
+- Allow disabling dropout layers of the backbone (default: True) ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 
 ### Fixed
 - The lazy modules are now initialized before and after applying the PEFT (necessary for some PEFT methods like OFT) ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
