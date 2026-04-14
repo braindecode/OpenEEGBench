@@ -11,7 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
 
-from pydantic import BaseModel, ConfigDict, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field
 
 if TYPE_CHECKING:
     import torch.nn as nn
@@ -28,13 +28,6 @@ def _param_stats(model) -> dict[str, Any]:
         "trainable_params": trainable,
         "trainable_pct": 100.0 * trainable / total if total else 0.0,
     }
-
-
-def _resolve_modules_to_save(model, head_module_name: str) -> list[str]:
-    """Auto-detect the head module to keep trainable under PEFT."""
-    if not hasattr(model, head_module_name):
-        raise ValueError(f"Model does not have head module '{head_module_name}'")
-    return [head_module_name]
 
 
 def _nn_types(*names: str) -> tuple:
@@ -141,7 +134,7 @@ class IA3(BaseModel):
         modules_to_save = backbone.get_training_required_modules()
         ff_modules = backbone.peft_ff_modules or None
         target_modules = backbone.peft_target_modules
-        if ff_modules and isinstance(target_modules, list) :
+        if ff_modules and isinstance(target_modules, list):
             target_modules = list(set(target_modules) | set(ff_modules))
         target_modules = _filter_targets(
             model, target_modules, _nn_types("Linear", "Conv2d", "Conv3d")
