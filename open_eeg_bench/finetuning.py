@@ -9,13 +9,10 @@ trains everything.
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Annotated, Any, Literal, Union
+from typing import Annotated, Any, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
-if TYPE_CHECKING:
-    import torch.nn as nn
-    from open_eeg_bench.backbone import _BackboneBase
 
 log = logging.getLogger(__name__)
 
