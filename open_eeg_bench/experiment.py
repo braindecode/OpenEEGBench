@@ -71,8 +71,6 @@ class Experiment(BaseModel):
                 "FlattenHead can only be used with ridge probing training."
             )
 
-        from open_eeg_bench.finetuning import Frozen
-
         if is_ridge and not isinstance(self.finetuning, Frozen):
             raise ValueError("Ridge probing requires Frozen finetuning.")
 
