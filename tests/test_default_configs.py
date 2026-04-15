@@ -95,3 +95,9 @@ def test_full_finetune_with_original_head_accepted():
         dataset=arithmetic_zyma2019(),
     )
     assert exp.finetuning.kind == "full"
+
+
+def test_training_has_sgd_kind():
+    from open_eeg_bench.training import Training
+    t = Training()
+    assert t.kind == "sgd"

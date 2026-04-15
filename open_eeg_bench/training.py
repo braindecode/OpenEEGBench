@@ -6,7 +6,7 @@ scheduler, early stopping, checkpointing, and logging.
 
 from __future__ import annotations
 
-from typing import ClassVar, TYPE_CHECKING
+from typing import ClassVar, Literal, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -77,6 +77,7 @@ class Training(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("device", "num_workers")
+    kind: Literal["sgd"] = "sgd"
 
     max_epochs: int = 50
     lr: float = 5e-4
