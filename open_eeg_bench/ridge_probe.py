@@ -55,7 +55,8 @@ def _fit_streaming_ridge(
     A = B = s_h = s_y = None
     N = 0
     with torch.no_grad():
-        for x, y in train_loader:
+        for batch in train_loader:
+            x, y = batch[0], batch[1]
             h = model(x.to(device))
             y_enc = _encode_targets(y.to(device), n_classes)
             h64 = h.double()
@@ -143,7 +144,8 @@ def _streaming_val_scores(
         ss_res = torch.zeros(K, dtype=torch.float64, device=device)
         ss_tot_scalar = torch.zeros((), dtype=torch.float64, device=device)
         with torch.no_grad():
-            for x, y in val_loader:
+            for batch in val_loader:
+                x, y = batch[0], batch[1]
                 h = model(x.to(device)).double()
                 y_enc = _encode_targets(y.to(device), n_classes).double()
                 preds = torch.einsum('kdc,bd->kbc', Ws, h) + biases.unsqueeze(1)
@@ -155,7 +157,8 @@ def _streaming_val_scores(
     # Classification: balanced accuracy via confusion matrix (K, C, C)
     confusion = torch.zeros(K, C, C, dtype=torch.float64, device=device)
     with torch.no_grad():
-        for x, y in val_loader:
+        for batch in val_loader:
+            x, y = batch[0], batch[1]
             h = model(x.to(device)).double()
             y_true = y.to(device).long()
             preds = torch.einsum('kdc,bd->kbc', Ws, h) + biases.unsqueeze(1)
