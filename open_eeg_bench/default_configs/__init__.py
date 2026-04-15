@@ -22,12 +22,13 @@ ALL_FINETUNING = {
     'two_stages': TwoStages,
 }
 
-from open_eeg_bench.head import LinearHead, MLPHead, OriginalHead
+from open_eeg_bench.head import LinearHead, MLPHead, OriginalHead, FlattenHead
 
 ALL_HEADS = {
     "linear_head": LinearHead,
     "mlp_head": MLPHead,
     "original_head": OriginalHead,
+    "flatten_head": FlattenHead,
 }
 
 from open_eeg_bench.default_configs.experiments import make_all_experiments

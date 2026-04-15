@@ -197,3 +197,35 @@ def test_ridge_valid_combination_accepted():
     )
     assert exp.training.kind == "ridge"
     assert exp.head.kind == "flatten"
+
+
+def test_make_all_experiments_ridge_probe_no_duplicates():
+    """ridge_probe strategy ignores `heads` and generates n_seeds × n_datasets experiments."""
+    from open_eeg_bench.default_configs.experiments import make_all_experiments
+
+    exps = make_all_experiments(
+        datasets=["arithmetic_zyma2019"],
+        heads=["linear_head", "mlp_head"],      # should be ignored for ridge_probe
+        finetuning_strategies=["ridge_probe"],
+        n_seeds=3,
+    )
+    assert len(exps) == 3   # 3 seeds × 1 dataset, heads ignored
+    for e in exps:
+        assert e.training.kind == "ridge"
+        assert e.head.kind == "flatten"
+        assert e.finetuning.kind == "frozen"
+
+
+def test_make_all_experiments_mixed_strategies():
+    """ridge_probe + frozen generate distinct experiments."""
+    from open_eeg_bench.default_configs.experiments import make_all_experiments
+
+    exps = make_all_experiments(
+        datasets=["arithmetic_zyma2019"],
+        heads=["linear_head"],
+        finetuning_strategies=["frozen", "ridge_probe"],
+        n_seeds=1,
+    )
+    assert len(exps) == 2
+    kinds = sorted(e.training.kind for e in exps)
+    assert kinds == ["ridge", "sgd"]
