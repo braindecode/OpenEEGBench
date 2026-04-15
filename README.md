@@ -12,7 +12,7 @@
 
 - 🎯 **One function, all results** — Call `benchmark()` with your model and get a full evaluation across 12 datasets
 - 📦 **Zero preprocessing** — All datasets are pre-windowed and hosted on [HuggingFace Hub](https://huggingface.co/braindecode), ready to use
-- ⚡ **7 fine-tuning strategies** — Frozen linear probing, LoRA, IA3, AdaLoRA, DoRA, OFT, and full fine-tuning
+- ⚡ **8 fine-tuning strategies** — Frozen linear probing, ridge probing, LoRA, IA3, AdaLoRA, DoRA, OFT, and full fine-tuning
 - 🔌 **Bring your own model** — Any PyTorch model that takes EEG input and returns features works out of the box
 - 🔒 **Reproducible by design** — A single config object fully describes a run. No YAML files, no hidden state
 
@@ -111,6 +111,7 @@ All 12 datasets are pre-windowed and hosted on [HuggingFace Hub](https://hugging
 | Strategy | Description | Trainable params |
 |----------|-------------|-----------------|
 | `Frozen()` | Freeze encoder, train only the head | ~0.01% |
+| `ridge_probe` | Closed-form ridge regression probing (no hyperparameter tuning needed) | ~0.01% |
 | `LoRA(r, alpha)` | Low-Rank Adaptation | ~1-5% |
 | `IA3()` | Inhibiting and Amplifying Inner Activations | ~0.1% |
 | `AdaLoRA(r, target_r)` | Adaptive rank allocation | ~1-5% |
