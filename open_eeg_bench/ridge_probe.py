@@ -10,7 +10,6 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
-import numpy as np
 import torch
 
 if TYPE_CHECKING:
@@ -130,14 +129,18 @@ def _streaming_val_scores(
     y_bar_train: torch.Tensor,
     device: str,
 ) -> torch.Tensor:
-    """Accumulate per-λ metric streaming on val. Returns (K,) scores (higher=better)."""
+    """Accumulate per-λ metric streaming on val. Returns (K,) scores (higher=better).
+
+    `y_bar_train` is only used by the regression branch (for SS_tot reference);
+    ignored for classification (balanced accuracy doesn't need it).
+    """
     K, _, C = Ws.shape
     is_regression = n_classes is None
 
     if is_regression:
         # R² = 1 - SS_res / SS_tot  (SS_tot using train mean; matches sklearn behavior closely enough)
         ss_res = torch.zeros(K, dtype=torch.float64, device=device)
-        ss_tot = torch.zeros(K, dtype=torch.float64, device=device)
+        ss_tot_scalar = torch.zeros((), dtype=torch.float64, device=device)
         with torch.no_grad():
             for x, y in val_loader:
                 h = model(x.to(device)).double()
@@ -145,9 +148,8 @@ def _streaming_val_scores(
                 preds = torch.einsum('kdc,bd->kbc', Ws, h) + biases.unsqueeze(1)
                 res = preds - y_enc.unsqueeze(0)
                 ss_res += (res ** 2).sum(dim=(1, 2))
-                tot = y_enc - y_bar_train.unsqueeze(0)
-                ss_tot += (tot ** 2).sum() * torch.ones(K, dtype=torch.float64, device=device)
-        return 1.0 - ss_res / ss_tot.clamp(min=1e-12)
+                ss_tot_scalar += ((y_enc - y_bar_train) ** 2).sum()
+        return 1.0 - ss_res / ss_tot_scalar.clamp(min=1e-12)
 
     # Classification: balanced accuracy via confusion matrix (K, C, C)
     confusion = torch.zeros(K, C, C, dtype=torch.float64, device=device)
@@ -157,6 +159,7 @@ def _streaming_val_scores(
             y_true = y.to(device).long()
             preds = torch.einsum('kdc,bd->kbc', Ws, h) + biases.unsqueeze(1)
             y_pred = preds.argmax(dim=2)  # (K, B)
+            # TODO: vectorize via scatter_add_ or per-k torch.bincount once val sets grow
             for k in range(K):
                 for t, p in zip(y_true, y_pred[k]):
                     confusion[k, t.long(), p.long()] += 1
