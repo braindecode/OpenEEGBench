@@ -127,3 +127,58 @@ def test_fit_streaming_ridge_regression_matches_sklearn(regression_data):
     np.testing.assert_allclose(b.ravel(), ref.intercept_.ravel(), atol=1e-4)
     # Val R² should be high on noise-free-ish synthetic data
     assert out["val_scores"][lam] > 0.9
+
+
+def test_learner_fit_predict_classification(classif_data):
+    from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    X_te, y_te = classif_data["test"]
+    C = classif_data["C"]
+
+    val_set = TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val))
+    train_set = TensorDataset(torch.from_numpy(X_tr), torch.from_numpy(y_tr))
+    test_set  = TensorDataset(torch.from_numpy(X_te), torch.from_numpy(y_te))
+
+    learner = StreamingRidgeProbeLearner(
+        feature_extractor=nn.Identity(),
+        n_classes=C,
+        batch_size=32,
+        num_workers=0,
+        device="cpu",
+        lambdas=[1e-2, 1.0, 1e2],
+        val_set=val_set,
+    )
+    learner.fit(train_set, y=None)
+    preds = learner.predict(test_set)
+    assert preds.shape == (len(X_te),)
+    assert preds.dtype in (np.int64, np.int32)
+    # Accuracy above chance
+    acc = (preds == y_te).mean()
+    assert acc > 1.0 / C
+
+
+def test_learner_fit_predict_regression(regression_data):
+    from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+
+    X_tr, y_tr = regression_data["train"]
+    X_val, y_val = regression_data["val"]
+    X_te, y_te = regression_data["test"]
+
+    val_set   = TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val))
+    train_set = TensorDataset(torch.from_numpy(X_tr), torch.from_numpy(y_tr))
+    test_set  = TensorDataset(torch.from_numpy(X_te), torch.from_numpy(y_te))
+
+    learner = StreamingRidgeProbeLearner(
+        feature_extractor=nn.Identity(),
+        n_classes=None,
+        batch_size=32,
+        num_workers=0,
+        device="cpu",
+        lambdas=None,
+        val_set=val_set,
+    )
+    learner.fit(train_set, y=None)
+    preds = learner.predict(test_set)
+    assert preds.shape == (len(X_te), 1) or preds.shape == (len(X_te),)

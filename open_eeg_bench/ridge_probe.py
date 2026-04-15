@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+import numpy as np
 import torch
 
 if TYPE_CHECKING:
@@ -168,3 +169,87 @@ def _streaming_val_scores(
     per_class = confusion.sum(dim=2).clamp(min=1)
     recalls = confusion.diagonal(dim1=1, dim2=2) / per_class
     return recalls.mean(dim=1)
+
+
+class StreamingRidgeProbeLearner:
+    """skorch-compatible adapter: .fit(train_set, y=None), .predict(test_set).
+
+    Used by RidgeProbingTraining.build_learner. Expects feature_extractor to
+    produce (B, D) features (FlattenHead is applied upstream in Experiment).
+    """
+
+    def __init__(
+        self,
+        feature_extractor,
+        n_classes: int | None,
+        batch_size: int,
+        num_workers: int,
+        device: str,
+        lambdas: list[float] | None,
+        val_set,
+    ):
+        self.model_ = feature_extractor
+        self.n_classes_ = n_classes
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.device = device
+        self.lambdas = lambdas
+        self.val_set = val_set
+        self._result: dict | None = None
+
+    def fit(self, train_set, y=None):
+        from torch.utils.data import DataLoader
+
+        self.model_.eval()
+        self.model_.to(self.device)
+
+        train_loader = DataLoader(
+            train_set, batch_size=self.batch_size, shuffle=False,
+            num_workers=self.num_workers, drop_last=False,
+        )
+        val_loader = DataLoader(
+            self.val_set, batch_size=self.batch_size, shuffle=False,
+            num_workers=self.num_workers, drop_last=False,
+        )
+
+        self._result = _fit_streaming_ridge(
+            model=self.model_,
+            train_loader=train_loader,
+            val_loader=val_loader,
+            n_classes=self.n_classes_,
+            lambdas=self.lambdas,
+            device=self.device,
+        )
+        log.info(
+            "Ridge probe fit complete — best_lambda=%.3g, val_scores=%s",
+            self._result["best_lambda"], self._result["val_scores"],
+        )
+        return self
+
+    def predict(self, test_set) -> np.ndarray:
+        from torch.utils.data import DataLoader
+
+        if self._result is None:
+            raise RuntimeError("Call .fit() before .predict().")
+
+        W = self._result["W"]        # (D, C) float64
+        bias = self._result["bias"]  # (C,) float64
+        loader = DataLoader(
+            test_set, batch_size=self.batch_size, shuffle=False,
+            num_workers=self.num_workers, drop_last=False,
+        )
+
+        self.model_.eval()
+        self.model_.to(self.device)
+        outs = []
+        with torch.no_grad():
+            for batch in loader:
+                x = batch[0] if isinstance(batch, (list, tuple)) else batch
+                h = self.model_(x.to(self.device)).double()
+                y_hat = h @ W + bias    # (B, C)
+                outs.append(y_hat.cpu().numpy())
+        preds = np.concatenate(outs, axis=0)
+
+        if self.n_classes_ is None:
+            return preds  # (N, C_out)
+        return preds.argmax(axis=1).astype(np.int64)
