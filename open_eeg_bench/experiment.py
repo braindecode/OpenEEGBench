@@ -27,12 +27,17 @@ from open_eeg_bench.backbone import (
 )
 from open_eeg_bench.dataset import Dataset
 from open_eeg_bench.finetuning import AdaLoRA, Finetuning, Frozen
-from open_eeg_bench.head import Head, LinearHead, OriginalHead
-from open_eeg_bench.training import Training
+from open_eeg_bench.head import Head, LinearHead, OriginalHead, FlattenHead
+from open_eeg_bench.training import Training, RidgeProbingTraining
 
 # Backbone union with discriminator so exca can compute deterministic UIDs.
 _Backbone = Annotated[
     Union[PretrainedBackbone, PlaceholderBackbone],
+    Field(discriminator="kind"),
+]
+
+_TrainingConfig = Annotated[
+    Union[Training, RidgeProbingTraining],
     Field(discriminator="kind"),
 ]
 
@@ -49,12 +54,40 @@ class Experiment(BaseModel):
     head: Head = Field(default_factory=LinearHead)
     finetuning: Finetuning = Field(default_factory=Frozen)
     dataset: Dataset
-    training: Training = Field(default_factory=Training)
+    training: _TrainingConfig = Field(default_factory=Training)
     infra: exca.TaskInfra = exca.TaskInfra(version="1")
 
     @model_validator(mode="after")
-    def _check_frozen_needs_new_head(self):
-        if isinstance(self.finetuning, Frozen) and isinstance(self.head, OriginalHead):
+    def _check_consistency(self):
+        is_ridge = self.training.kind == "ridge"
+        is_flatten_head = isinstance(self.head, FlattenHead)
+
+        if is_ridge and not is_flatten_head:
+            raise ValueError(
+                "Ridge probing requires FlattenHead (head='flatten_head')."
+            )
+        if is_flatten_head and not is_ridge:
+            raise ValueError(
+                "FlattenHead can only be used with ridge probing training."
+            )
+
+        from open_eeg_bench.finetuning import Frozen
+
+        if is_ridge and not isinstance(self.finetuning, Frozen):
+            raise ValueError("Ridge probing requires Frozen finetuning.")
+
+        if is_ridge and self.backbone.training_required_modules:
+            raise ValueError(
+                f"Ridge probing incompatible with backbone.training_required_modules="
+                f"{self.backbone.training_required_modules}. "
+                f"These backbones need SGD training."
+            )
+
+        if (
+            not is_ridge
+            and isinstance(self.finetuning, Frozen)
+            and isinstance(self.head, OriginalHead)
+        ):
             raise ValueError(
                 "Frozen finetuning with OriginalHead trains nothing new. "
                 "Use LinearHead or MLPHead instead."

@@ -109,3 +109,91 @@ def test_ridge_probing_training_instantiation():
     assert t.kind == "ridge"
     assert t.batch_size == 64
     assert t.lambdas is None
+
+
+def test_ridge_requires_flatten_head():
+    """Ridge training without FlattenHead must be rejected."""
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.training import RidgeProbingTraining
+    from open_eeg_bench.head import LinearHead
+
+    with pytest.raises(ValueError, match="FlattenHead"):
+        Experiment(
+            backbone=biot(),
+            head=LinearHead(),
+            finetuning=Frozen(),
+            dataset=arithmetic_zyma2019(),
+            training=RidgeProbingTraining(),
+        )
+
+
+def test_flatten_head_requires_ridge():
+    """FlattenHead outside ridge training must be rejected."""
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.head import FlattenHead
+    from open_eeg_bench.training import Training
+
+    with pytest.raises(ValueError, match="FlattenHead"):
+        Experiment(
+            backbone=biot(),
+            head=FlattenHead(),
+            finetuning=Frozen(),
+            dataset=arithmetic_zyma2019(),
+            training=Training(),
+        )
+
+
+def test_ridge_requires_frozen():
+    """Ridge training with non-Frozen finetuning must be rejected."""
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.finetuning import LoRA
+    from open_eeg_bench.head import FlattenHead
+    from open_eeg_bench.training import RidgeProbingTraining
+
+    with pytest.raises(ValueError, match="Frozen"):
+        Experiment(
+            backbone=biot(),
+            head=FlattenHead(),
+            finetuning=LoRA(),
+            dataset=arithmetic_zyma2019(),
+            training=RidgeProbingTraining(),
+        )
+
+
+def test_ridge_rejects_training_required_modules():
+    """Backbones with training_required_modules are incompatible with ridge."""
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.head import FlattenHead
+    from open_eeg_bench.training import RidgeProbingTraining
+
+    bb = biot().model_copy(update={"training_required_modules": ["some_module"]})
+    with pytest.raises(ValueError, match="training_required_modules"):
+        Experiment(
+            backbone=bb,
+            head=FlattenHead(),
+            finetuning=Frozen(),
+            dataset=arithmetic_zyma2019(),
+            training=RidgeProbingTraining(),
+        )
+
+
+def test_ridge_valid_combination_accepted():
+    """ridge + FlattenHead + Frozen + clean backbone must be accepted."""
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.head import FlattenHead
+    from open_eeg_bench.training import RidgeProbingTraining
+
+    exp = Experiment(
+        backbone=biot(),
+        head=FlattenHead(),
+        finetuning=Frozen(),
+        dataset=arithmetic_zyma2019(),
+        training=RidgeProbingTraining(),
+    )
+    assert exp.training.kind == "ridge"
+    assert exp.head.kind == "flatten"
