@@ -46,14 +46,20 @@ def make_all_experiments(
     ----------
     datasets : list[str], optional
         Dataset names to evaluate on. If None, uses all datasets.
+        Valid names: "arithmetic_zyma2019", "bcic2a", "bcic2020_3",
+        "physionet", "chbmit", "faced", "isruc_sleep", "mdd_mumtaz2016",
+        "seed_v", "seed_vig", "tuab", "tuev".
     finetuning_strategies : list[str], optional
         Finetuning strategy names. If None, uses ["frozen"].
         Valid: "frozen", "lora", "ia3", "adalora", "dora", "oft",
         "full_finetune", "two_stages", "ridge_probe".
         "ridge_probe" performs closed-form ridge regression linear probing.
     heads : list[str], optional
-        Head names. If None, uses ["linear_head"]. Ignored for "ridge_probe"
-        (which always uses FlattenHead by definition).
+        Head names. If None, uses ["linear_head"]. Valid names:
+        "linear_head", "mlp_head", "original_head".
+        Ignored for "ridge_probe" (which always uses FlattenHead by definition):
+        when "ridge_probe" is combined with multiple heads, only one experiment
+        per (seed, dataset) is emitted.
     n_seeds : int
         Number of random seeds.
     """
