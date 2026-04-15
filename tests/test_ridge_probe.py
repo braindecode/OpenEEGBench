@@ -182,3 +182,33 @@ def test_learner_fit_predict_regression(regression_data):
     learner.fit(train_set, y=None)
     preds = learner.predict(test_set)
     assert preds.shape == (len(X_te), 1) or preds.shape == (len(X_te),)
+
+
+@pytest.mark.slow
+def test_ridge_probe_end_to_end_on_biot():
+    """Full Experiment.run() with ridge_probe on BIOT + arithmetic_zyma2019.
+
+    Verifies the wiring: Experiment validates, runs, returns
+    test_balanced_accuracy above chance.
+    """
+    import torch
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.experiment import Experiment
+    from open_eeg_bench.finetuning import Frozen
+    from open_eeg_bench.head import FlattenHead
+    from open_eeg_bench.training import RidgeProbingTraining
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    exp = Experiment(
+        backbone=biot(),
+        head=FlattenHead(),
+        finetuning=Frozen(),
+        dataset=arithmetic_zyma2019(),
+        training=RidgeProbingTraining(device=device, batch_size=32),
+        seed=0,
+    )
+    result = exp.run()
+    assert "test_balanced_accuracy" in result
+    assert result["test_balanced_accuracy"] > 0.5  # above chance for binary
