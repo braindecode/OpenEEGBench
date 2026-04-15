@@ -179,3 +179,35 @@ class Training(BaseModel):
             learner = EEGClassifier(classes=classes, **common_kwargs)
 
         return learner
+
+
+class RidgeProbingTraining(BaseModel):
+    """Closed-form ridge regression probing on frozen backbone features.
+
+    Runs three streaming passes: accumulate sufficient statistics on train,
+    select regularization strength on val, predict on test. No gradient-based
+    training, no callbacks.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("device", "num_workers")
+
+    kind: Literal["ridge"] = "ridge"
+    batch_size: int = 64
+    num_workers: int = 0
+    device: str = "cpu"
+    lambdas: list[float] | None = None  # None → default logspace × eigval scale
+
+    def build_learner(self, model, callbacks, n_classes, val_set):
+        from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+
+        # callbacks ignored — no epochs, no early stopping
+        return StreamingRidgeProbeLearner(
+            feature_extractor=model,
+            n_classes=n_classes,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            device=self.device,
+            lambdas=self.lambdas,
+            val_set=val_set,
+        )

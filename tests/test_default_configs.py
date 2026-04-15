@@ -101,3 +101,11 @@ def test_training_has_sgd_kind():
     from open_eeg_bench.training import Training
     t = Training()
     assert t.kind == "sgd"
+
+
+def test_ridge_probing_training_instantiation():
+    from open_eeg_bench.training import RidgeProbingTraining
+    t = RidgeProbingTraining()
+    assert t.kind == "ridge"
+    assert t.batch_size == 64
+    assert t.lambdas is None
