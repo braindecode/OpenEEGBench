@@ -20,7 +20,6 @@ results = oeb.benchmark(
         max_seq_len=1024,
         return_feature=False,
     ),
-    peft_target_modules=["to_q", "to_k", "to_v", "to_out", "w1", "w2"],
     datasets=["arithmetic_zyma2019"],
     n_seeds=1,
     device="cpu",
