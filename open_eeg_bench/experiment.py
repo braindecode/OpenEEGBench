@@ -49,6 +49,8 @@ class Experiment(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("verbose",)
+
     seed: int = 42
     backbone: _Backbone
     head: Head = Field(default_factory=LinearHead)
@@ -56,6 +58,7 @@ class Experiment(BaseModel):
     dataset: Dataset
     training: _TrainingConfig = Field(default_factory=Training)
     infra: exca.TaskInfra = exca.TaskInfra(version="1")
+    verbose: int = 1
 
     @model_validator(mode="after")
     def _check_consistency(self):
@@ -102,39 +105,27 @@ class Experiment(BaseModel):
             Results including test metrics and adapter stats.
         """
         import os
+        import time
         import numpy as np
         import torch
 
-        experiment_desc = self.infra.config(uid=False, exclude_defaults=False).to_yaml()
-        log.info(f"Running experiment:\n{experiment_desc}")
+        verbose = self.verbose
 
         # ===============================================================
         # 0. Seed EVERYTHING for reproducibility
         # ===============================================================
         np.random.seed(self.seed)
         torch.manual_seed(self.seed)
-        # Handle CUDA determinism carefully
         try:
-            import multiprocessing
-
-            # Check if we are in a worker process
-            is_worker = (
-                "LokyProcess" in multiprocessing.current_process().name
-                or "SpawnPoolWorker" in multiprocessing.current_process().name
-            )
-            # Use environment heuristic or process name
             if torch.cuda.is_available():
-                # Only set CUDA seeds if we are in a worker or explicit single-run
                 torch.cuda.manual_seed(self.seed)
                 torch.cuda.manual_seed_all(self.seed)
-
                 if hasattr(torch.backends, "cudnn"):
                     torch.backends.cudnn.benchmark = False
                     torch.backends.cudnn.deterministic = True
         except Exception as e:
             log.warning(f"Skipped CUDA determinism settings: {e}")
         os.environ["CUBLAS_WORKSPACE_CONFIG"] = ":4096:8"
-        log.info(f"Set random seed to {self.seed} with full determinism enabled")
 
         # ===============================================================
         # 1. Load data
@@ -143,15 +134,13 @@ class Experiment(BaseModel):
         full_ds, train_set, val_set, test_set, info = self.dataset.setup(
             normalization=backbone_obj.normalization
         )
-        log.info(
-            "Data: %d train, %d val, %s test | shape=(%d, %d) sfreq=%.0f",
-            len(train_set),
-            len(val_set),
-            len(test_set) if test_set else "no",
-            info["n_chans"],
-            info["n_times"],
-            info["sfreq"],
-        )
+        if verbose:
+            print(
+                f"Data: {len(train_set)} train, {len(val_set)} val, "
+                f"{len(test_set)} test | "
+                f"shape=({info['n_chans']}, {info['n_times']}) "
+                f"sfreq={info['sfreq']:.0f}"
+            )
 
         # ===============================================================
         # 2. Build model (and load pretrained weights)
@@ -194,17 +183,16 @@ class Experiment(BaseModel):
                 updates["tinit"] = total_step // 5
                 updates["tfinal"] = total_step // 2
             finetuning = finetuning.model_copy(update=updates)
-            log.info("AdaLoRA: auto-computed total_step=%d", total_step)
 
         model, adapter_stats = finetuning.apply(model, backbone_obj)
 
-        log.info(
-            "Finetuning: %s — %s/%s params (%.1f%%)",
-            adapter_stats["method"],
-            f"{adapter_stats['trainable_params']:,}",
-            f"{adapter_stats['total_params']:,}",
-            adapter_stats["trainable_pct"],
-        )
+        if verbose:
+            print(
+                f"Finetuning: {adapter_stats['method']} — "
+                f"{adapter_stats['trainable_params']:,}/"
+                f"{adapter_stats['total_params']:,} params "
+                f"({adapter_stats['trainable_pct']:.1f}%)"
+            )
 
         # ===============================================================
         # 5. Get skorch callbacks from the finetuning
@@ -214,18 +202,24 @@ class Experiment(BaseModel):
         # ===============================================================
         # 6. Create learner and train
         # ===============================================================
+        if verbose:
+            print(f"Training: {self.training.kind}")
+
         learner = self.training.build_learner(
             model=model,
             callbacks=callbacks,
             n_classes=self.dataset.n_classes,
             val_set=val_set,
+            verbose=verbose,
         )
+        t0 = time.time()
         learner.fit(train_set, y=None)
+        fit_time = time.time() - t0
 
         # ===============================================================
         # 7. Test
         # ===============================================================
-        results = {"adapter_stats": adapter_stats}
+        results = {"adapter_stats": adapter_stats, "fit_time": fit_time}
         y_pred = learner.predict(test_set)
         y_true = np.array([test_set[i][1] for i in range(len(test_set))])
         is_regression = self.dataset.n_classes is None
@@ -233,12 +227,17 @@ class Experiment(BaseModel):
             from sklearn.metrics import r2_score
 
             results["test_r2"] = float(r2_score(y_true, y_pred.ravel()))
-            log.info("Test R²: %.4f", results["test_r2"])
         else:
             from sklearn.metrics import balanced_accuracy_score
 
             results["test_balanced_accuracy"] = balanced_accuracy_score(y_true, y_pred)
-            log.info("Test balanced accuracy: %.4f", results["test_balanced_accuracy"])
+
+        if verbose:
+            metric_name = "test_r2" if is_regression else "test_balanced_accuracy"
+            print(
+                f"Test score: {metric_name} = {results[metric_name]:.4f} "
+                f"(fit time: {fit_time:.1f}s)"
+            )
 
         return results
 
@@ -259,7 +258,6 @@ class Experiment(BaseModel):
             model.eval()
             model(dummy)
             model.train()
-        log.info("Initialized lazy modules with dummy forward pass")
 
 
 def collect_completed_results(

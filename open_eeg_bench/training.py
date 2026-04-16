@@ -148,7 +148,7 @@ class Training(BaseModel):
 
         return cbs
 
-    def build_learner(self, model, callbacks, n_classes, val_set):
+    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
         from torch.optim import AdamW
         from skorch.helper import predefined_split
         from braindecode import EEGClassifier, EEGRegressor
@@ -166,7 +166,7 @@ class Training(BaseModel):
             batch_size=self.batch_size,
             device=self.device,
             callbacks=callbacks,
-            verbose=1,
+            verbose=verbose,
             iterator_train__num_workers=self.num_workers,
             iterator_valid__num_workers=self.num_workers,
         )
@@ -198,7 +198,7 @@ class RidgeProbingTraining(BaseModel):
     device: str = "cpu"
     lambdas: list[float] | None = None  # None → default logspace × eigval scale
 
-    def build_learner(self, model, callbacks, n_classes, val_set):
+    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
         from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
 
         # callbacks ignored — no epochs, no early stopping
@@ -210,4 +210,5 @@ class RidgeProbingTraining(BaseModel):
             device=self.device,
             lambdas=self.lambdas,
             val_set=val_set,
+            verbose=verbose,
         )
