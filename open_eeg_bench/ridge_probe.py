@@ -234,11 +234,15 @@ class StreamingRidgeProbeLearner:
             device=self.device,
         )
         if self.verbose:
-            print(
-                "Ridge probe fit complete — best_lambda=%.3g, val_scores=%s",
-                self._result["best_lambda"],
-                self._result["val_scores"],
-            )
+            metric = "R²" if self.n_classes_ is None else "balanced_acc"
+            lines = [f"Ridge probe fit complete (metric: {metric})"]
+            lines.append(f"  {'lambda':>12s}  {metric:>12s}  {'selected':>8s}")
+            lines.append(f"  {'─' * 12}  {'─' * 12}  {'─' * 8}")
+            best_lam = self._result["best_lambda"]
+            for lam, score in self._result["val_scores"].items():
+                marker = "  ←" if lam == best_lam else ""
+                lines.append(f"  {lam:12.3g}  {score:12.4f}{marker}")
+            print("\n".join(lines))
         return self
 
     def predict(self, test_set) -> np.ndarray:
