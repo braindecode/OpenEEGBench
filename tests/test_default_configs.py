@@ -183,13 +183,13 @@ def test_ridge_rejects_training_required_modules():
 
 def test_ridge_valid_combination_accepted():
     """ridge + FlattenHead + Frozen + clean backbone must be accepted."""
-    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.backbones import cbramod
     from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
     from open_eeg_bench.head import FlattenHead
     from open_eeg_bench.training import RidgeProbingTraining
 
     exp = Experiment(
-        backbone=biot(),
+        backbone=cbramod(),
         head=FlattenHead(),
         finetuning=Frozen(),
         dataset=arithmetic_zyma2019(),

@@ -199,12 +199,12 @@ def test_learner_fit_predict_regression(regression_data):
 @pytest.mark.slow
 @pytest.mark.parametrize("dataset_name", list(ALL_DATASETS.keys()))
 def test_ridge_probe_end_to_end(dataset_name):
-    """Full Experiment.run() with ridge_probe on BIOT for each dataset.
+    """Full Experiment.run() with ridge_probe on CBraMod for each dataset.
 
     Skips datasets not already downloaded locally.
     """
     from pathlib import Path
-    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.default_configs.backbones import cbramod
     from open_eeg_bench.experiment import Experiment
     from open_eeg_bench.finetuning import Frozen
     from open_eeg_bench.head import FlattenHead
@@ -219,7 +219,7 @@ def test_ridge_probe_end_to_end(dataset_name):
 
     device = "cuda" if torch.cuda.is_available() else "cpu"
     exp = Experiment(
-        backbone=biot(),
+        backbone=cbramod(),
         head=FlattenHead(),
         finetuning=Frozen(),
         dataset=dataset_cfg,
