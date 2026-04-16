@@ -181,10 +181,15 @@ def _streaming_val_scores(
             y_true = y.to(device).long()
             preds = torch.einsum("kdc,bd->kbc", Ws, h) + biases.unsqueeze(1)
             y_pred = preds.argmax(dim=2)  # (K, B)
-            # TODO: vectorize via scatter_add_ or per-k torch.bincount once val sets grow
-            for k in range(K):
-                for t, p in zip(y_true, y_pred[k]):
-                    confusion[k, t.long(), p.long()] += 1
+            linear_idx = y_true.unsqueeze(0) * C + y_pred  # (K, B)
+            offsets = (
+                torch.arange(K, device=device, dtype=linear_idx.dtype).unsqueeze(1) * (C * C)
+            )  # (K, 1)
+            counts = torch.bincount(
+                (linear_idx + offsets).reshape(-1),
+                minlength=K * C * C,
+            ).reshape(K, C, C)
+            confusion += counts.to(dtype=confusion.dtype)
 
     # Balanced accuracy = mean of per-class recall
     per_class = confusion.sum(dim=2).clamp(min=1)
