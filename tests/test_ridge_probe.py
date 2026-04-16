@@ -35,8 +35,10 @@ def _loader(X, y, batch_size=32):
 
 
 def test_fit_streaming_ridge_matches_sklearn_classification(classif_data):
-    """Streaming ridge weights match sklearn.Ridge on one-hot targets."""
+    """Streaming ridge predictions match sklearn StandardScaler + Ridge."""
     from sklearn.linear_model import Ridge
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.pipeline import make_pipeline
     from open_eeg_bench.ridge_probe import _fit_streaming_ridge
 
     X_tr, y_tr = classif_data["train"]
@@ -53,14 +55,17 @@ def test_fit_streaming_ridge_matches_sklearn_classification(classif_data):
         device="cpu",
     )
 
-    # sklearn reference: one-hot Ridge with fit_intercept=True
+    # sklearn reference: standardize then ridge on one-hot targets
     Y_oh = np.eye(C)[y_tr]
-    ref = Ridge(alpha=lam, fit_intercept=True).fit(X_tr, Y_oh)
+    ref = make_pipeline(StandardScaler(), Ridge(alpha=lam, fit_intercept=True))
+    ref.fit(X_tr, Y_oh)
 
-    W = out["W"].cpu().numpy()       # (D, C)
-    b = out["bias"].cpu().numpy()    # (C,)
-    np.testing.assert_allclose(W, ref.coef_.T, atol=1e-4)
-    np.testing.assert_allclose(b, ref.intercept_, atol=1e-4)
+    # Compare predictions on train (representation-independent)
+    W = out["W"].cpu().numpy()
+    b = out["bias"].cpu().numpy()
+    pred_ours = X_tr @ W + b
+    pred_ref = ref.predict(X_tr)
+    np.testing.assert_allclose(pred_ours, pred_ref, atol=1e-4)
 
 
 def test_fit_streaming_ridge_selects_best_lambda(classif_data):
@@ -105,8 +110,10 @@ def regression_data():
 
 
 def test_fit_streaming_ridge_regression_matches_sklearn(regression_data):
-    """Streaming ridge weights match sklearn.Ridge on regression targets."""
+    """Streaming ridge predictions match sklearn StandardScaler + Ridge."""
     from sklearn.linear_model import Ridge
+    from sklearn.preprocessing import StandardScaler
+    from sklearn.pipeline import make_pipeline
     from open_eeg_bench.ridge_probe import _fit_streaming_ridge
 
     X_tr, y_tr = regression_data["train"]
@@ -122,11 +129,14 @@ def test_fit_streaming_ridge_regression_matches_sklearn(regression_data):
         device="cpu",
     )
 
-    ref = Ridge(alpha=lam, fit_intercept=True).fit(X_tr, y_tr.reshape(-1, 1))
+    ref = make_pipeline(StandardScaler(), Ridge(alpha=lam, fit_intercept=True))
+    ref.fit(X_tr, y_tr.reshape(-1, 1))
+
     W = out["W"].cpu().numpy()
     b = out["bias"].cpu().numpy()
-    np.testing.assert_allclose(W.ravel(), ref.coef_.ravel(), atol=1e-4)
-    np.testing.assert_allclose(b.ravel(), ref.intercept_.ravel(), atol=1e-4)
+    pred_ours = (X_tr @ W + b).ravel()
+    pred_ref = ref.predict(X_tr).ravel()
+    np.testing.assert_allclose(pred_ours, pred_ref, atol=1e-4)
     # Val R² should be high on noise-free-ish synthetic data
     assert out["val_scores"][lam] > 0.9
 

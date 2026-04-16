@@ -26,10 +26,10 @@ def _encode_targets(y: torch.Tensor, n_classes: int | None) -> torch.Tensor:
     return torch.nn.functional.one_hot(y.long(), num_classes=n_classes).float()
 
 
-def _default_lambdas(eigvals_mean: float) -> list[float]:
-    """Default λ grid: 9 values on a logspace scaled by mean eigenvalue."""
-    scale = max(eigvals_mean, 1e-12)
-    return [10**e * scale for e in range(-4, 5)]
+def _default_lambdas() -> list[float]:
+    """Default λ grid: 17 fixed values. Features are standardized internally,
+    so eigenvalues of the correlation matrix are O(1) and a fixed grid works."""
+    return [10**e for e in range(-8, 9)]
 
 
 def _fit_streaming_ridge(
@@ -49,7 +49,7 @@ def _fit_streaming_ridge(
     model.to(device)
 
     # ----- Pass 1: accumulate sufficient statistics on train -----
-    A = B = s_h = s_y = None
+    A = B = s_h = s_h2 = s_y = None
     N = 0
     with torch.no_grad():
         for batch in train_loader:
@@ -65,11 +65,13 @@ def _fit_streaming_ridge(
                 A = torch.zeros(D, D, dtype=torch.float64, device=device)
                 B = torch.zeros(D, C, dtype=torch.float64, device=device)
                 s_h = torch.zeros(D, dtype=torch.float64, device=device)
+                s_h2 = torch.zeros(D, dtype=torch.float64, device=device)
                 s_y = torch.zeros(C, dtype=torch.float64, device=device)
 
             A += h64.T @ h64
             B += h64.T @ y64
             s_h += h64.sum(0)
+            s_h2 += (h64**2).sum(0)
             s_y += y64.sum(0)
             N += h64.shape[0]
 
@@ -79,26 +81,35 @@ def _fit_streaming_ridge(
     D = A.shape[0]
     C = B.shape[1]
 
-    # ----- Center (bias handled analytically) -----
+    # ----- Center -----
     h_bar = s_h / N
     y_bar = s_y / N
     C_xx = A - N * torch.outer(h_bar, h_bar)
     C_xy = B - N * torch.outer(h_bar, y_bar)
 
-    # ----- Eigendecomposition (once) -----
-    eigvals, Q = torch.linalg.eigh(C_xx)  # C_xx symmetric PSD
-    Ct = Q.T @ C_xy  # (D, C)
+    # ----- Standardize features (z = (h - mean) / std) -----
+    # Work on the correlation matrix instead of the covariance so that
+    # eigenvalues are O(1) and a fixed λ grid is meaningful.
+    h_std = (s_h2 / N - h_bar**2).sqrt().clamp(min=1e-12)  # (D,)
+    inv_std = 1.0 / h_std
+    C_zz = C_xx * torch.outer(inv_std, inv_std)  # correlation matrix
+    C_zy = C_xy * inv_std.unsqueeze(1)
+
+    # ----- Eigendecomposition (once, on correlation matrix) -----
+    eigvals, Q = torch.linalg.eigh(C_zz)
+    Ct = Q.T @ C_zy  # (D, C)
 
     if lambdas is None:
-        lambdas = _default_lambdas(eigvals.mean().item())
+        lambdas = _default_lambdas()
 
-    # ----- Solve for each λ in eigenbasis -----
+    # ----- Solve for each λ in eigenbasis, convert back to original space -----
     K = len(lambdas)
     Ws = torch.zeros(K, D, C, dtype=torch.float64, device=device)
     biases = torch.zeros(K, C, dtype=torch.float64, device=device)
     for k, lam in enumerate(lambdas):
         denom = (eigvals + lam).unsqueeze(1)  # (D, 1)
-        Ws[k] = Q @ (Ct / denom)  # (D, C)
+        W_z = Q @ (Ct / denom)  # (D, C) in standardized space
+        Ws[k] = W_z * inv_std.unsqueeze(1)  # back to original: w_i / std_i
         biases[k] = y_bar - Ws[k].T @ h_bar  # (C,)
 
     # ----- Pass 2: streaming λ selection on val -----
