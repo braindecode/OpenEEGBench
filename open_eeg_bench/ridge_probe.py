@@ -17,8 +17,6 @@ if TYPE_CHECKING:
     import torch.nn as nn
     from torch.utils.data import DataLoader
 
-log = logging.getLogger(__name__)
-
 
 def _encode_targets(y: torch.Tensor, n_classes: int | None) -> torch.Tensor:
     """One-hot encode class labels, or reshape regression targets to 2D."""
@@ -90,7 +88,7 @@ def _fit_streaming_ridge(
 
     # ----- Eigendecomposition (once) -----
     eigvals, Q = torch.linalg.eigh(C_xx)  # C_xx symmetric PSD
-    Ct = Q.T @ C_xy                         # (D, C)
+    Ct = Q.T @ C_xy  # (D, C)
 
     if lambdas is None:
         lambdas = _default_lambdas(eigvals.mean().item())
@@ -101,13 +99,18 @@ def _fit_streaming_ridge(
     biases = torch.zeros(K, C, dtype=torch.float64, device=device)
     for k, lam in enumerate(lambdas):
         denom = (eigvals + lam).unsqueeze(1)  # (D, 1)
-        Ws[k] = Q @ (Ct / denom)               # (D, C)
-        biases[k] = y_bar - Ws[k].T @ h_bar    # (C,)
+        Ws[k] = Q @ (Ct / denom)  # (D, C)
+        biases[k] = y_bar - Ws[k].T @ h_bar  # (C,)
 
     # ----- Pass 2: streaming λ selection on val -----
     val_scores = _streaming_val_scores(
-        model, val_loader, Ws, biases, n_classes=n_classes,
-        y_bar_train=y_bar, device=device,
+        model,
+        val_loader,
+        Ws,
+        biases,
+        n_classes=n_classes,
+        y_bar_train=y_bar,
+        device=device,
     )  # tensor of shape (K,)
 
     best_k = int(val_scores.argmax().item())
@@ -125,8 +128,8 @@ def _fit_streaming_ridge(
 def _streaming_val_scores(
     model: "nn.Module",
     val_loader: "DataLoader",
-    Ws: torch.Tensor,       # (K, D, C)
-    biases: torch.Tensor,   # (K, C)
+    Ws: torch.Tensor,  # (K, D, C)
+    biases: torch.Tensor,  # (K, C)
     n_classes: int | None,
     y_bar_train: torch.Tensor,
     device: str,
@@ -148,9 +151,9 @@ def _streaming_val_scores(
                 x, y = batch[0], batch[1]
                 h = model(x.to(device)).double()
                 y_enc = _encode_targets(y.to(device), n_classes).double()
-                preds = torch.einsum('kdc,bd->kbc', Ws, h) + biases.unsqueeze(1)
+                preds = torch.einsum("kdc,bd->kbc", Ws, h) + biases.unsqueeze(1)
                 res = preds - y_enc.unsqueeze(0)
-                ss_res += (res ** 2).sum(dim=(1, 2))
+                ss_res += (res**2).sum(dim=(1, 2))
                 ss_tot_scalar += ((y_enc - y_bar_train) ** 2).sum()
         return 1.0 - ss_res / ss_tot_scalar.clamp(min=1e-12)
 
@@ -161,7 +164,7 @@ def _streaming_val_scores(
             x, y = batch[0], batch[1]
             h = model(x.to(device)).double()
             y_true = y.to(device).long()
-            preds = torch.einsum('kdc,bd->kbc', Ws, h) + biases.unsqueeze(1)
+            preds = torch.einsum("kdc,bd->kbc", Ws, h) + biases.unsqueeze(1)
             y_pred = preds.argmax(dim=2)  # (K, B)
             # TODO: vectorize via scatter_add_ or per-k torch.bincount once val sets grow
             for k in range(K):
@@ -207,12 +210,18 @@ class StreamingRidgeProbeLearner:
         self.model_.to(self.device)
 
         train_loader = DataLoader(
-            train_set, batch_size=self.batch_size, shuffle=False,
-            num_workers=self.num_workers, drop_last=False,
+            train_set,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            drop_last=False,
         )
         val_loader = DataLoader(
-            self.val_set, batch_size=self.batch_size, shuffle=False,
-            num_workers=self.num_workers, drop_last=False,
+            self.val_set,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            drop_last=False,
         )
 
         self._result = _fit_streaming_ridge(
@@ -235,11 +244,14 @@ class StreamingRidgeProbeLearner:
         if self._result is None:
             raise RuntimeError("Call .fit() before .predict().")
 
-        W = self._result["W"]        # (D, C) float64
+        W = self._result["W"]  # (D, C) float64
         bias = self._result["bias"]  # (C,) float64
         loader = DataLoader(
-            test_set, batch_size=self.batch_size, shuffle=False,
-            num_workers=self.num_workers, drop_last=False,
+            test_set,
+            batch_size=self.batch_size,
+            shuffle=False,
+            num_workers=self.num_workers,
+            drop_last=False,
         )
 
         self.model_.eval()
@@ -249,7 +261,7 @@ class StreamingRidgeProbeLearner:
             for batch in loader:
                 x = batch[0] if isinstance(batch, (list, tuple)) else batch
                 h = self.model_(x.to(self.device)).double()
-                y_hat = h @ W + bias    # (B, C)
+                y_hat = h @ W + bias  # (B, C)
                 outs.append(y_hat.cpu().numpy())
         preds = np.concatenate(outs, axis=0)
 
