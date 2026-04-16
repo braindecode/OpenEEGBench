@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Add `"ridge_probe"` finetuning strategy: closed-form streaming ridge regression probing on frozen backbone features. Single pass over the dataloader, eigendecomposition-based λ sweep, no hyperparameter tuning needed ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 - Add `FlattenHead` head type (used internally by ridge probing) ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 - Add `RidgeProbingTraining` config with `kind="ridge"` discriminator for the `Training` union ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
+- Add sanity check in `load_pretrained`: missing parameters must belong to `head_module_name` or `training_required_modules`, missing buffers emit a warning ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 - Add pytest to the CI workflow to run tests on each pull request ([#18](https://github.com/braindecode/OpenEEGBench/pull/18)).
 - Add `max_meta_experiments` argument to `helpers.run_multiple_per_node()` as alternative to `max_experiments_per_node` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
 - Add `training_required_modules` parameter to the backbones ([#20](https://github.com/braindecode/OpenEEGBench/pull/20))

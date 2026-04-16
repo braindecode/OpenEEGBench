@@ -77,8 +77,9 @@ def make_all_experiments(
         seeds, heads, finetuning_strategies, datasets
     ):
         if finetuning_name == RIDGE_PROBE_NAME:
-            # Ridge probe is linear and head-agnostic — deduplicate across heads
-            if head_name != heads[0]:
+            # Ridge probe is deterministic and head-agnostic —
+            # deduplicate across seeds and heads
+            if seed != 0 or head_name != heads[0]:
                 continue
             head_cfg = FlattenHead()
             training_cfg = default_ridge_probing()

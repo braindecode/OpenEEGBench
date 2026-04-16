@@ -51,7 +51,7 @@ class Experiment(BaseModel):
 
     _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("verbose",)
 
-    seed: int = 42
+    seed: int = 0
     backbone: _Backbone
     head: Head = Field(default_factory=LinearHead)
     finetuning: Finetuning = Field(default_factory=Frozen)
@@ -76,6 +76,12 @@ class Experiment(BaseModel):
 
         if is_ridge and not isinstance(self.finetuning, Frozen):
             raise ValueError("Ridge probing requires Frozen finetuning.")
+
+        if is_ridge and self.seed != 0:
+            raise ValueError(
+                "Ridge probing is deterministic (no random initialization), "
+                "so varying the seed has no effect. Use seed=0."
+            )
 
         if is_ridge and self.backbone.training_required_modules:
             raise ValueError(
