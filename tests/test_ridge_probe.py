@@ -6,6 +6,8 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 
+from open_eeg_bench.default_configs.datasets import ALL_DATASETS
+
 
 @pytest.fixture
 def classif_data():
@@ -185,30 +187,40 @@ def test_learner_fit_predict_regression(regression_data):
 
 
 @pytest.mark.slow
-def test_ridge_probe_end_to_end_on_biot():
-    """Full Experiment.run() with ridge_probe on BIOT + arithmetic_zyma2019.
+@pytest.mark.parametrize("dataset_name", list(ALL_DATASETS.keys()))
+def test_ridge_probe_end_to_end(dataset_name):
+    """Full Experiment.run() with ridge_probe on BIOT for each dataset.
 
-    Verifies the wiring: Experiment validates, runs, returns
-    test_balanced_accuracy above chance.
+    Skips datasets not already downloaded locally.
     """
-    import torch
+    from pathlib import Path
     from open_eeg_bench.default_configs.backbones import biot
-    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
     from open_eeg_bench.experiment import Experiment
     from open_eeg_bench.finetuning import Frozen
     from open_eeg_bench.head import FlattenHead
     from open_eeg_bench.training import RidgeProbingTraining
 
-    device = "cuda" if torch.cuda.is_available() else "cpu"
+    dataset_cfg = ALL_DATASETS[dataset_name]()
 
+    cache_dir = f"datasets--{dataset_cfg.hf_id.replace('/', '--')}"
+    cache_path = Path.home() / ".cache" / "huggingface" / "hub" / cache_dir
+    if not cache_path.exists():
+        pytest.skip(f"{dataset_cfg.hf_id} not downloaded locally")
+
+    device = "cuda" if torch.cuda.is_available() else "cpu"
     exp = Experiment(
         backbone=biot(),
         head=FlattenHead(),
         finetuning=Frozen(),
-        dataset=arithmetic_zyma2019(),
+        dataset=dataset_cfg,
         training=RidgeProbingTraining(device=device, batch_size=32),
         seed=0,
     )
     result = exp.run()
-    assert "test_balanced_accuracy" in result
-    assert result["test_balanced_accuracy"] > 0.5  # above chance for binary
+
+    if dataset_cfg.n_classes is None:
+        assert "test_r2" in result
+    else:
+        chance = 1.0 / dataset_cfg.n_classes
+        assert "test_balanced_accuracy" in result
+        assert result["test_balanced_accuracy"] > chance
