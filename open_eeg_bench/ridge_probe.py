@@ -7,7 +7,6 @@ sweeps λ cheaply in the eigenbasis for each val/test pass.
 
 from __future__ import annotations
 
-import logging
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -193,6 +192,7 @@ class StreamingRidgeProbeLearner:
         device: str,
         lambdas: list[float] | None,
         val_set,
+        verbose: int = 1,
     ):
         self.model_ = feature_extractor
         self.n_classes_ = n_classes
@@ -201,6 +201,7 @@ class StreamingRidgeProbeLearner:
         self.device = device
         self.lambdas = lambdas
         self.val_set = val_set
+        self.verbose = verbose
         self._result: dict | None = None
 
     def fit(self, train_set, y=None):
@@ -232,10 +233,12 @@ class StreamingRidgeProbeLearner:
             lambdas=self.lambdas,
             device=self.device,
         )
-        log.info(
-            "Ridge probe fit complete — best_lambda=%.3g, val_scores=%s",
-            self._result["best_lambda"], self._result["val_scores"],
-        )
+        if self.verbose:
+            print(
+                "Ridge probe fit complete — best_lambda=%.3g, val_scores=%s",
+                self._result["best_lambda"],
+                self._result["val_scores"],
+            )
         return self
 
     def predict(self, test_set) -> np.ndarray:
