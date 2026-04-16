@@ -123,7 +123,12 @@ def _fit_streaming_ridge(
         device=device,
     )  # tensor of shape (K,)
 
-    best_k = int(val_scores.argmax().item())
+    # Among tied best scores, pick the largest λ (most regularization):
+    # more parsimonious, fewer effective degrees of freedom, numerically stabler.
+    best_score = val_scores.max()
+    tied_mask = val_scores == best_score
+    # lambdas are sorted ascending, so the last tied index is the largest λ
+    best_k = int(tied_mask.nonzero()[-1].item())
     return {
         "W": Ws[best_k],
         "bias": biases[best_k],
