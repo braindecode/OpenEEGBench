@@ -44,7 +44,7 @@ def test_experiment_instantiation():
         backbone=biot(),
         dataset=arithmetic_zyma2019(),
     )
-    assert exp.seed == 42
+    assert exp.seed == 0
 
 
 def test_frozen_with_original_head_rejected():
