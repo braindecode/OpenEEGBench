@@ -28,22 +28,85 @@ class _BackboneBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     # --- Coupling fields (queried by finetuning / head / dataset) ---
-    peft_target_modules: list[str] = Field(
-        default_factory=list,
+    peft_target_modules: list[str] | Literal["all-linear"] | None = Field(
+        default="all-linear",
         description="Module names to target for PEFT adapters (LoRA, IA3, etc.).",
     )
-    peft_ff_modules: list[str] = Field(
-        default_factory=list,
+    peft_ff_modules: list[str] | None = Field(
+        default=None,
         description="Feedforward module names for IA3.",
     )
     head_module_name: str = Field(
         default="final_layer",
-        description="Name of the classification head module in the model.",
+        description=(
+            "Name of the classification head module in the model. "
+            "This layer will be discarded and replaced with a new head during finetuning."
+        ),
+    )
+    training_required_modules: list[str] | None = Field(
+        default=None,
+        description=(
+            "Module names to always train, even in 'frozen' finetuning mode "
+            "(where by default only final_layer is trained). "
+            "Leave empty unless the backbone needs an adaptation layer for unseen channels. "
+            "Warning: models using this field are categorized separately in evaluations, "
+            "since training extra layers is not comparable to training only a classification head."
+        ),
     )
     normalization: Normalization = Field(
         default=NoNormalization(),
         description="Post-window normalization applied to each data window.",
     )
+
+    def get_training_required_modules(self):
+        out = [self.head_module_name]
+        if self.training_required_modules:
+            log.warning(
+                "%s requires training extra modules %s beyond the head. "
+                "This model will be categorized separately in evaluations.",
+                type(self).__name__,
+                self.training_required_modules,
+            )
+            out += self.training_required_modules
+        return out
+
+    def _build(
+        self,
+        n_chans: int,
+        n_times: int,
+        n_outputs: int,
+        sfreq: float,
+        chs_info: list | None = None,
+    ):
+        """Instantiate the backbone model."""
+        raise NotImplementedError
+
+    def _check_layers_and_parameters_exist(self, model):
+        """Verify that all configured module/parameter names exist in the model.
+
+        This test can only be done once the model has been instantiated.
+        """
+        module_names = {name for name, _ in model.named_modules()}
+        module_fields = {"head_module_name": [self.head_module_name]}
+        if (
+            self.peft_target_modules is not None
+            and self.peft_target_modules != "all-linear"
+        ):
+            module_fields["peft_target_modules"] = self.peft_target_modules
+        if self.peft_ff_modules is not None:
+            module_fields["peft_ff_modules"] = self.peft_ff_modules
+        if self.training_required_modules is not None:
+            module_fields["training_required_modules"] = self.training_required_modules
+        for field, names in module_fields.items():
+            for name in names:
+                # Allow short names that match a suffix (e.g. "qkv" matches "encoder.layer.0.qkv")
+                if name not in module_names and not any(
+                    n == name or n.endswith("." + name) for n in module_names
+                ):
+                    raise ValueError(
+                        f"{type(self).__name__}.{field} references module '{name}' "
+                        f"which does not exist in the model."
+                    )
 
     def build(
         self,
@@ -54,7 +117,9 @@ class _BackboneBase(BaseModel):
         chs_info: list | None = None,
     ):
         """Instantiate the backbone model."""
-        raise NotImplementedError
+        model = self._build(n_chans, n_times, n_outputs, sfreq, chs_info)
+        self._check_layers_and_parameters_exist(model)
+        return model
 
 
 # ============================================================================
@@ -102,7 +167,7 @@ class PretrainedBackbone(_BackboneBase):
         module = import_module(module_path)
         return getattr(module, cls_name)
 
-    def build(
+    def _build(
         self,
         n_chans: int,
         n_times: int,
@@ -210,4 +275,3 @@ class PlaceholderBackbone(_BackboneBase):
     """
 
     kind: Literal["placeholder"] = "placeholder"
-    peft_target_modules: list[str] = []

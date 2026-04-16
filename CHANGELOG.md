@@ -10,13 +10,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 - Add pytest to the CI workflow to run tests on each pull request ([#18](https://github.com/braindecode/OpenEEGBench/pull/18)).
 - Add `max_meta_experiments` argument to `helpers.run_multiple_per_node()` as alternative to `max_experiments_per_node` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
+- Add `training_required_modules` parameter to the backbones ([#20](https://github.com/braindecode/OpenEEGBench/pull/20))
 
 ### Changed
 - Popularize the use of `import open_eeg_bench as oeb` via the README and documentation ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
 - Improve import hints via the `__all__` variable in `__init__.py` ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
+- All backbones now use `peft_target_modules="all-linear"` by default for simplicity, which leads to a slight increase in the number of parameters being finetuned ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
+- Change default `LoRA.bias` to "none" to match PEFT's default ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
+- Allow disabling dropout layers of the backbone (default: True) ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 
 ### Fixed
 - The lazy modules are now initialized before and after applying the PEFT (necessary for some PEFT methods like OFT) ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
+- Take into account [BENDR's channels projection fix](https://github.com/braindecode/braindecode/pull/954) in the BENDR backbone ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 
 
 ## [0.2.1] - 2026-04-07
