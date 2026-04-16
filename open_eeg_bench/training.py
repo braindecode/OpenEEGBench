@@ -196,7 +196,7 @@ class RidgeProbingTraining(BaseModel):
     batch_size: int = 64
     num_workers: int = 0
     device: str = "cpu"
-    lambdas: list[float] | None = None  # None → default logspace × eigval scale
+    lambdas: list[float] | None = None  # None → use the learner's default fixed log-spaced grid
 
     def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
         from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
