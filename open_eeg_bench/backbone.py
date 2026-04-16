@@ -277,7 +277,8 @@ class PretrainedBackbone(_BackboneBase):
                 f"training_required_modules: {unexpected_params}. "
                 f"These parameters keep random initialization, making results "
                 f"seed-dependent. Either provide a checkpoint that covers them "
-                f"or add the relevant modules to training_required_modules."
+                f"or add the relevant modules to training_required_modules.",
+                stacklevel=2,
             )
         if missing_buffers:
             warnings.warn(
