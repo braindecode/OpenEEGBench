@@ -187,6 +187,24 @@ class RidgeProbingTraining(BaseModel):
     Runs three streaming passes: accumulate sufficient statistics on train,
     select regularization strength on val, predict on test. No gradient-based
     training, no callbacks.
+
+    Memory (peak, excluding backbone and per-batch activations)
+    -----------------------------------------------------------
+    When ``max_features`` caps the feature dimension at ``k``, peak memory
+    during the fit is dominated by:
+
+    * the projection matrix ``P`` of shape ``(k, D_orig)`` — roughly
+      ``8 · k · D_orig`` bytes (depends on the backbone; zero when
+      ``D_orig ≤ k``, no projection applied).
+    * a fixed cost of **~48 · k²** bytes independent of backbone and dataset,
+      from four persistent ``k×k`` float64 matrices (``X^T X``, centered cov,
+      correlation, eigenvectors) plus the LAPACK workspace of ``torch.linalg.eigh``.
+
+    Typical fixed-cost values (projection matrix not included):
+
+    * ``max_features = 1_000``  → ~50 MB
+    * ``max_features = 5_000``  → ~1.25 GB
+    * ``max_features = 25_000`` → ~30 GB
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -197,6 +215,8 @@ class RidgeProbingTraining(BaseModel):
     num_workers: int = 0
     device: str = "cpu"
     lambdas: list[float] | None = None  # None → use the learner's default fixed log-spaced grid
+    max_features: int | None = None  # if set and D > max_features, Gaussian random-project to max_features
+    projection_seed: int = 0
 
     def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
         from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
@@ -210,5 +230,7 @@ class RidgeProbingTraining(BaseModel):
             device=self.device,
             lambdas=self.lambdas,
             val_set=val_set,
+            max_features=self.max_features,
+            projection_seed=self.projection_seed,
             verbose=verbose,
         )

@@ -32,6 +32,23 @@ def _default_lambdas() -> list[float]:
     return [10**e for e in range(-8, 9)]
 
 
+def _make_projection_matrix(
+    n_features: int, n_components: int, seed: int, device: str
+) -> torch.Tensor:
+    """Return a (n_components, n_features) Gaussian random projection matrix.
+
+    Uses sklearn's ``GaussianRandomProjection._make_random_matrix`` directly so
+    that scaling matches scikit-learn exactly (entries ~ N(0, 1/n_components)).
+    The private method is called on purpose: ``fit`` requires a numpy array of
+    real data, which we don't have at this stage (only the feature dimension).
+    """
+    from sklearn.random_projection import GaussianRandomProjection
+
+    rp = GaussianRandomProjection(n_components=n_components, random_state=seed)
+    P = rp._make_random_matrix(n_components, n_features)
+    return torch.from_numpy(np.asarray(P)).to(device=device, dtype=torch.float64)
+
+
 def _fit_streaming_ridge(
     model: "nn.Module",
     train_loader: "DataLoader",
@@ -39,24 +56,45 @@ def _fit_streaming_ridge(
     n_classes: int | None,
     lambdas: list[float] | None,
     device: str,
+    max_features: int | None = None,
+    projection_seed: int = 0,
 ) -> dict:
     """Fit streaming ridge probe, select λ on val, return weights + diagnostics.
 
+    If ``max_features`` is set and the backbone emits more features than that,
+    features are projected down to ``max_features`` dimensions via a Gaussian
+    random projection (seeded by ``projection_seed``) before accumulation.
+
     Returns dict with keys: W (D,C), bias (C,), best_lambda (float),
-    val_scores (dict λ→score), lambdas (list[float]), n_classes, n_features D.
+    val_scores (dict λ→score), lambdas (list[float]), n_classes, n_features D
+    (after projection if applied), projection (torch.Tensor | None).
     """
     model.eval()
     model.to(device)
 
     # ----- Pass 1: accumulate sufficient statistics on train -----
     A = B = s_h = s_h2 = s_y = None
+    projection = None  # (k, D_orig) float64; lazily built once D_orig is known
     N = 0
     with torch.no_grad():
         for batch in train_loader:
             x, y = batch[0], batch[1]
             h = model(x.to(device))
-            y_enc = _encode_targets(y.to(device), n_classes)
             h64 = h.double()
+            if (
+                projection is None
+                and max_features is not None
+                and h64.shape[1] > max_features
+            ):
+                projection = _make_projection_matrix(
+                    n_features=h64.shape[1],
+                    n_components=max_features,
+                    seed=projection_seed,
+                    device=device,
+                )
+            if projection is not None:
+                h64 = h64 @ projection.T  # (B, k)
+            y_enc = _encode_targets(y.to(device), n_classes)
             y64 = y_enc.double()
 
             if A is None:
@@ -121,6 +159,7 @@ def _fit_streaming_ridge(
         n_classes=n_classes,
         y_bar_train=y_bar,
         device=device,
+        projection=projection,
     )  # tensor of shape (K,)
 
     # Among tied best scores, pick the largest λ (most regularization):
@@ -137,6 +176,7 @@ def _fit_streaming_ridge(
         "lambdas": lambdas,
         "n_classes": n_classes,
         "n_features": D,
+        "projection": projection,
     }
 
 
@@ -148,6 +188,7 @@ def _streaming_val_scores(
     n_classes: int | None,
     y_bar_train: torch.Tensor,
     device: str,
+    projection: torch.Tensor | None = None,
 ) -> torch.Tensor:
     """Accumulate per-λ metric streaming on val. Returns (K,) scores (higher=better).
 
@@ -165,6 +206,8 @@ def _streaming_val_scores(
             for batch in val_loader:
                 x, y = batch[0], batch[1]
                 h = model(x.to(device)).double()
+                if projection is not None:
+                    h = h @ projection.T
                 y_enc = _encode_targets(y.to(device), n_classes).double()
                 preds = torch.einsum("kdc,bd->kbc", Ws, h) + biases.unsqueeze(1)
                 res = preds - y_enc.unsqueeze(0)
@@ -178,6 +221,8 @@ def _streaming_val_scores(
         for batch in val_loader:
             x, y = batch[0], batch[1]
             h = model(x.to(device)).double()
+            if projection is not None:
+                h = h @ projection.T
             y_true = y.to(device).long()
             preds = torch.einsum("kdc,bd->kbc", Ws, h) + biases.unsqueeze(1)
             y_pred = preds.argmax(dim=2)  # (K, B)
@@ -213,6 +258,8 @@ class StreamingRidgeProbeLearner:
         device: str,
         lambdas: list[float] | None,
         val_set,
+        max_features: int | None = None,
+        projection_seed: int = 0,
         verbose: int = 1,
     ):
         self.model_ = feature_extractor
@@ -222,6 +269,8 @@ class StreamingRidgeProbeLearner:
         self.device = device
         self.lambdas = lambdas
         self.val_set = val_set
+        self.max_features = max_features
+        self.projection_seed = projection_seed
         self.verbose = verbose
         self._result: dict | None = None
 
@@ -253,6 +302,8 @@ class StreamingRidgeProbeLearner:
             n_classes=self.n_classes_,
             lambdas=self.lambdas,
             device=self.device,
+            max_features=self.max_features,
+            projection_seed=self.projection_seed,
         )
         if self.verbose:
             metric = "R²" if self.n_classes_ is None else "balanced_acc"
@@ -274,6 +325,7 @@ class StreamingRidgeProbeLearner:
 
         W = self._result["W"]  # (D, C) float64
         bias = self._result["bias"]  # (C,) float64
+        projection = self._result.get("projection")  # (k, D_orig) float64 or None
         loader = DataLoader(
             test_set,
             batch_size=self.batch_size,
@@ -289,6 +341,8 @@ class StreamingRidgeProbeLearner:
             for batch in loader:
                 x = batch[0] if isinstance(batch, (list, tuple)) else batch
                 h = self.model_(x.to(self.device)).double()
+                if projection is not None:
+                    h = h @ projection.T
                 y_hat = h @ W + bias  # (B, C)
                 outs.append(y_hat.cpu().numpy())
         preds = np.concatenate(outs, axis=0)

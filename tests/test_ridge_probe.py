@@ -196,6 +196,127 @@ def test_learner_fit_predict_regression(regression_data):
     assert preds.shape == (len(X_te), 1) or preds.shape == (len(X_te),)
 
 
+def test_max_features_noop_when_D_small(classif_data):
+    """max_features >= D → no projection, result identical to unset."""
+    from open_eeg_bench.ridge_probe import _fit_streaming_ridge
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    C, D = classif_data["C"], classif_data["D"]
+
+    out_ref = _fit_streaming_ridge(
+        model=nn.Identity(),
+        train_loader=_loader(X_tr, y_tr),
+        val_loader=_loader(X_val, y_val),
+        n_classes=C,
+        lambdas=[1.0],
+        device="cpu",
+    )
+    out = _fit_streaming_ridge(
+        model=nn.Identity(),
+        train_loader=_loader(X_tr, y_tr),
+        val_loader=_loader(X_val, y_val),
+        n_classes=C,
+        lambdas=[1.0],
+        device="cpu",
+        max_features=D + 10,  # larger than D → projection skipped
+    )
+    assert out["projection"] is None
+    assert out_ref["projection"] is None
+    torch.testing.assert_close(out["W"], out_ref["W"])
+    torch.testing.assert_close(out["bias"], out_ref["bias"])
+
+
+def test_max_features_activates_and_reduces_dim(classif_data):
+    """max_features < D → projection built, n_features matches target."""
+    from open_eeg_bench.ridge_probe import _fit_streaming_ridge
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    C, D = classif_data["C"], classif_data["D"]
+    k = 8  # D=20 → project to 8
+
+    out = _fit_streaming_ridge(
+        model=nn.Identity(),
+        train_loader=_loader(X_tr, y_tr),
+        val_loader=_loader(X_val, y_val),
+        n_classes=C,
+        lambdas=[1.0],
+        device="cpu",
+        max_features=k,
+    )
+    P = out["projection"]
+    assert P is not None
+    assert P.shape == (k, D)
+    assert out["n_features"] == k
+    # W is in projected space
+    assert out["W"].shape == (k, C)
+    # Still classifies above chance on separable synthetic data
+    Y_oh = np.eye(C)[y_tr]
+    X64 = torch.from_numpy(X_tr).double()
+    pred = (X64 @ P.T @ out["W"] + out["bias"]).numpy()
+    acc = (pred.argmax(axis=1) == y_tr).mean()
+    assert acc > 1.0 / C
+
+
+def test_max_features_deterministic_across_seeds(classif_data):
+    """Same projection_seed ⇒ same weights; different seed ⇒ different weights."""
+    from open_eeg_bench.ridge_probe import _fit_streaming_ridge
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    C = classif_data["C"]
+    kwargs = dict(
+        model=nn.Identity(),
+        train_loader=_loader(X_tr, y_tr),
+        val_loader=_loader(X_val, y_val),
+        n_classes=C,
+        lambdas=[1.0],
+        device="cpu",
+        max_features=8,
+    )
+    out_a = _fit_streaming_ridge(**kwargs, projection_seed=0)
+    out_b = _fit_streaming_ridge(**kwargs, projection_seed=0)
+    out_c = _fit_streaming_ridge(**kwargs, projection_seed=42)
+
+    torch.testing.assert_close(out_a["projection"], out_b["projection"])
+    torch.testing.assert_close(out_a["W"], out_b["W"])
+    assert not torch.allclose(out_a["projection"], out_c["projection"])
+    assert not torch.allclose(out_a["W"], out_c["W"])
+
+
+def test_learner_max_features_predict(classif_data):
+    """Learner applies projection consistently at predict time."""
+    from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    X_te, y_te = classif_data["test"]
+    C = classif_data["C"]
+
+    train_set = TensorDataset(torch.from_numpy(X_tr), torch.from_numpy(y_tr))
+    val_set = TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val))
+    test_set = TensorDataset(torch.from_numpy(X_te), torch.from_numpy(y_te))
+
+    learner = StreamingRidgeProbeLearner(
+        feature_extractor=nn.Identity(),
+        n_classes=C,
+        batch_size=32,
+        num_workers=0,
+        device="cpu",
+        lambdas=[1e-2, 1.0, 1e2],
+        val_set=val_set,
+        max_features=10,
+        projection_seed=0,
+    )
+    learner.fit(train_set, y=None)
+    assert learner._result["projection"] is not None
+    preds = learner.predict(test_set)
+    assert preds.shape == (len(X_te),)
+    # Above chance on synthetic separable data
+    assert (preds == y_te).mean() > 1.0 / C
+
+
 @pytest.mark.slow
 @pytest.mark.parametrize("dataset_name", list(ALL_DATASETS.keys()))
 def test_ridge_probe_end_to_end(dataset_name):
