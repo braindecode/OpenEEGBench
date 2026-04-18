@@ -148,7 +148,10 @@ class Training(BaseModel):
 
         return cbs
 
-    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
+    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1, seed: int = 0):
+        # seed: currently unused — SGD reproducibility comes from the torch
+        # global seeded by Experiment.run() before this call. Accepted so all
+        # training configs share the same `build_learner` signature.
         from torch.optim import AdamW
         from skorch.helper import predefined_split
         from braindecode import EEGClassifier, EEGRegressor
@@ -218,7 +221,7 @@ class RidgeProbingTraining(BaseModel):
     max_features: int | None = 5000  # if set and D > max_features, Gaussian random-project to max_features
     projection_seed: int = 0
 
-    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
+    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1, seed: int = 0):
         from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
 
         # callbacks ignored — no epochs, no early stopping
@@ -231,6 +234,6 @@ class RidgeProbingTraining(BaseModel):
             lambdas=self.lambdas,
             val_set=val_set,
             max_features=self.max_features,
-            projection_seed=self.projection_seed,
+            projection_seed=seed,
             verbose=verbose,
         )
