@@ -116,6 +116,14 @@ def _fit_streaming_ridge(
     if A is None:
         raise ValueError("Empty train_loader — no features accumulated.")
 
+    if not torch.isfinite(A).all():
+        raise RuntimeError(
+            "Non-finite (NaN/Inf) values in the accumulated feature covariance. "
+            "The backbone is emitting NaN/Inf features — check for RuntimeWarnings "
+            "like 'divide by zero' or 'invalid value' during the forward pass. "
+            "Ridge probing cannot proceed on polluted features."
+        )
+
     D = A.shape[0]
     C = B.shape[1]
 
@@ -164,8 +172,17 @@ def _fit_streaming_ridge(
 
     # Among tied best scores, pick the largest λ (most regularization):
     # more parsimonious, fewer effective degrees of freedom, numerically stabler.
-    best_score = val_scores.max()
-    tied_mask = val_scores == best_score
+    # NaN-aware: a NaN val score means the val pass hit non-finite features
+    # or predictions — exclude it from both max and tie-breaking.
+    finite_mask = torch.isfinite(val_scores)
+    if not finite_mask.any():
+        raise RuntimeError(
+            "All val scores are non-finite — the backbone produced NaN/Inf "
+            "features or the ridge solve diverged. Check for RuntimeWarnings "
+            "during the forward pass."
+        )
+    best_score = val_scores[finite_mask].max()
+    tied_mask = (val_scores == best_score) & finite_mask
     # lambdas are sorted ascending, so the last tied index is the largest λ
     best_k = int(tied_mask.nonzero()[-1].item())
     return {
