@@ -182,23 +182,6 @@ def test_ridge_rejects_training_required_modules():
         )
 
 
-def test_ridge_rejects_nonzero_seed():
-    """Ridge probing with seed != 0 must be rejected."""
-    from open_eeg_bench.default_configs.backbones import cbramod
-    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
-    from open_eeg_bench.head import FlattenHead
-    from open_eeg_bench.training import RidgeProbingTraining
-
-    with pytest.raises(ValueError, match="deterministic"):
-        Experiment(
-            backbone=cbramod(),
-            head=FlattenHead(),
-            finetuning=Frozen(),
-            dataset=arithmetic_zyma2019(),
-            training=RidgeProbingTraining(),
-            seed=42,
-        )
-
 
 def test_ridge_valid_combination_accepted():
     """ridge + FlattenHead + Frozen + clean backbone + seed=0 must be accepted."""
@@ -220,25 +203,26 @@ def test_ridge_valid_combination_accepted():
     assert exp.seed == 0
 
 
-def test_make_all_experiments_ridge_probe_no_duplicates():
-    """ridge_probe deduplicates across seeds and heads: 1 experiment per dataset."""
+def test_make_all_experiments_ridge_probe_one_per_seed():
+    """ridge_probe deduplicates heads but keeps every seed (different projections)."""
     from open_eeg_bench.default_configs.experiments import make_all_experiments
 
     exps = make_all_experiments(
         datasets=["arithmetic_zyma2019"],
         heads=["linear_head", "mlp_head"],      # should be ignored for ridge_probe
         finetuning_strategies=["ridge_probe"],
-        n_seeds=3,                               # should be ignored for ridge_probe
+        n_seeds=3,
     )
-    assert len(exps) == 1   # 1 dataset, seeds and heads ignored
-    assert exps[0].training.kind == "ridge"
-    assert exps[0].head.kind == "flatten"
-    assert exps[0].finetuning.kind == "frozen"
-    assert exps[0].seed == 0
+    assert len(exps) == 3   # 1 dataset × 3 seeds × (heads dedup → 1)
+    assert {e.seed for e in exps} == {0, 1, 2}
+    for e in exps:
+        assert e.training.kind == "ridge"
+        assert e.head.kind == "flatten"
+        assert e.finetuning.kind == "frozen"
 
 
 def test_make_all_experiments_mixed_strategies():
-    """ridge_probe + frozen generate distinct experiments."""
+    """ridge_probe + frozen generate distinct experiments, both varying over seeds."""
     from open_eeg_bench.default_configs.experiments import make_all_experiments
 
     exps = make_all_experiments(
@@ -247,10 +231,11 @@ def test_make_all_experiments_mixed_strategies():
         finetuning_strategies=["frozen", "ridge_probe"],
         n_seeds=3,
     )
-    # 3 seeds × 1 head × frozen + 1 ridge = 4
-    assert len(exps) == 4
+    # 3 seeds × 1 head × frozen + 3 seeds × ridge = 6
+    assert len(exps) == 6
     ridge_exps = [e for e in exps if e.training.kind == "ridge"]
     sgd_exps = [e for e in exps if e.training.kind == "sgd"]
-    assert len(ridge_exps) == 1
+    assert len(ridge_exps) == 3
     assert len(sgd_exps) == 3
-    assert ridge_exps[0].seed == 0
+    assert {e.seed for e in ridge_exps} == {0, 1, 2}
+    assert {e.seed for e in sgd_exps} == {0, 1, 2}
