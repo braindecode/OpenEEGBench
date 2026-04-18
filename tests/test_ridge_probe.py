@@ -341,6 +341,49 @@ def test_max_features_deterministic_across_seeds(classif_data):
     assert not torch.allclose(out_a["W"], out_c["W"])
 
 
+def test_experiment_seed_drives_projection(classif_data):
+    """Experiment.seed flows through Training.build_learner into the projection matrix."""
+    from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+    from open_eeg_bench.training import RidgeProbingTraining
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    C = classif_data["C"]
+    D = classif_data["D"]
+
+    train_set = TensorDataset(torch.from_numpy(X_tr), torch.from_numpy(y_tr))
+    val_set = TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val))
+    training_cfg = RidgeProbingTraining(
+        batch_size=32, num_workers=0, device="cpu", max_features=50,
+    )
+
+    def fit_with_seed(seed: int) -> StreamingRidgeProbeLearner:
+        learner = training_cfg.build_learner(
+            model=nn.Identity(),
+            callbacks=[],
+            n_classes=C,
+            val_set=val_set,
+            verbose=0,
+            seed=seed,
+        )
+        learner.fit(train_set, y=None)
+        return learner
+
+    learner_a = fit_with_seed(0)
+    learner_b = fit_with_seed(0)
+    learner_c = fit_with_seed(42)
+
+    P_a = learner_a._result["projection"]
+    P_b = learner_b._result["projection"]
+    P_c = learner_c._result["projection"]
+    assert P_a is not None and P_a.shape == (50, D)
+    # Same seed -> same matrix; different seed -> different matrix
+    torch.testing.assert_close(P_a, P_b)
+    assert not torch.allclose(P_a, P_c)
+    # Predictions differ too (matrices differ non-trivially)
+    assert not torch.allclose(learner_a._result["W"], learner_c._result["W"])
+
+
 def test_learner_max_features_predict(classif_data):
     """Learner applies projection consistently at predict time."""
     from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
