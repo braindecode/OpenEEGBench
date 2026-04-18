@@ -11,10 +11,14 @@ from open_eeg_bench.default_configs.datasets import ALL_DATASETS
 
 @pytest.fixture
 def classif_data():
-    """Synthetic linearly separable data for classification."""
+    """Synthetic linearly separable data for classification.
+
+    D is chosen > 100 so that the ``max_features=100`` parametrization
+    actually triggers a random projection in tests that exercise it.
+    """
     torch.manual_seed(0)
     rng = np.random.default_rng(0)
-    N, D, C = 500, 20, 3
+    N, D, C = 500, 200, 3
     W_true = rng.standard_normal((D, C))
     X = rng.standard_normal((N, D)).astype(np.float32)
     logits = X @ W_true
@@ -34,17 +38,27 @@ def _loader(X, y, batch_size=32):
     return DataLoader(ds, batch_size=batch_size, shuffle=False)
 
 
-def test_fit_streaming_ridge_matches_sklearn_classification(classif_data):
-    """Streaming ridge predictions match sklearn StandardScaler + Ridge."""
+@pytest.mark.parametrize("max_features", [None, 100])
+def test_fit_streaming_ridge_matches_sklearn_classification(classif_data, max_features):
+    """Streaming ridge predictions match a sklearn pipeline on the same X.
+
+    The reference is ``[GaussianRandomProjection?] → StandardScaler → Ridge``:
+    when ``max_features`` is set, the sklearn pipeline projects using the same
+    ``random_state`` as our ``projection_seed``. Identical seeds must yield
+    identical projection matrices — so fitting on raw X_tr on both sides and
+    predicting on raw X_tr must match end-to-end.
+    """
     from sklearn.linear_model import Ridge
     from sklearn.preprocessing import StandardScaler
     from sklearn.pipeline import make_pipeline
+    from sklearn.random_projection import GaussianRandomProjection
     from open_eeg_bench.ridge_probe import _fit_streaming_ridge
 
     X_tr, y_tr = classif_data["train"]
     X_val, y_val = classif_data["val"]
     C = classif_data["C"]
     lam = 1.0
+    projection_seed = 0
 
     out = _fit_streaming_ridge(
         model=nn.Identity(),
@@ -53,17 +67,33 @@ def test_fit_streaming_ridge_matches_sklearn_classification(classif_data):
         n_classes=C,
         lambdas=[lam],
         device="cpu",
+        max_features=max_features,
+        projection_seed=projection_seed,
     )
 
-    # sklearn reference: standardize then ridge on one-hot targets
+    if max_features is not None:
+        # make sure the test is actually testing the projection logic
+        assert max_features < classif_data["D"]
+
+    # sklearn reference pipeline: same projection (if any) + standardize + ridge.
+    steps = []
+    if max_features is not None:
+        steps.append(
+            GaussianRandomProjection(
+                n_components=max_features, random_state=projection_seed
+            )
+        )
+    steps.extend([StandardScaler(), Ridge(alpha=lam, fit_intercept=True)])
+    ref = make_pipeline(*steps)
     Y_oh = np.eye(C)[y_tr]
-    ref = make_pipeline(StandardScaler(), Ridge(alpha=lam, fit_intercept=True))
     ref.fit(X_tr, Y_oh)
 
-    # Compare predictions on train (representation-independent)
+    # Apply our stored projection (if any) then our ridge weights.
     W = out["W"].cpu().numpy()
     b = out["bias"].cpu().numpy()
-    pred_ours = X_tr @ W + b
+    P = out["projection"]
+    X_proj = X_tr if P is None else X_tr @ P.cpu().numpy().T
+    pred_ours = X_proj @ W + b
     pred_ref = ref.predict(X_tr)
     np.testing.assert_allclose(pred_ours, pred_ref, atol=1e-4)
 
@@ -139,6 +169,32 @@ def test_fit_streaming_ridge_regression_matches_sklearn(regression_data):
     np.testing.assert_allclose(pred_ours, pred_ref, atol=1e-4)
     # Val R² should be high on noise-free-ish synthetic data
     assert out["val_scores"][lam] > 0.9
+
+
+def test_fit_streaming_ridge_raises_on_nan_features(classif_data):
+    """NaN features (e.g. from a buggy backbone) yield a clear error, not IndexError."""
+    from open_eeg_bench.ridge_probe import _fit_streaming_ridge
+
+    class NaNModel(nn.Module):
+        def forward(self, x):
+            # Emit NaN in one feature dim to mimic signal_jepa's divide-by-zero
+            out = x.clone()
+            out[:, 0] = float("nan")
+            return out
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    C = classif_data["C"]
+
+    with pytest.raises(RuntimeError, match="NaN/Inf"):
+        _fit_streaming_ridge(
+            model=NaNModel(),
+            train_loader=_loader(X_tr, y_tr),
+            val_loader=_loader(X_val, y_val),
+            n_classes=C,
+            lambdas=[1.0],
+            device="cpu",
+        )
 
 
 def test_learner_fit_predict_classification(classif_data):
