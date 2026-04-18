@@ -217,6 +217,7 @@ class Experiment(BaseModel):
             n_classes=self.dataset.n_classes,
             val_set=val_set,
             verbose=verbose,
+            seed=self.seed,
         )
         t0 = time.time()
         learner.fit(train_set, y=None)
