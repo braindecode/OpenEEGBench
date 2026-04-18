@@ -59,7 +59,8 @@ def make_all_experiments(
         "linear_head", "mlp_head", "original_head".
         Ignored for "ridge_probe" (which always uses FlattenHead by definition):
         when "ridge_probe" is combined with multiple heads, only one experiment
-        per (seed, dataset) is emitted.
+        per (seed, dataset) is emitted. Multiple seeds are kept — they produce
+        different random projection matrices and let you estimate variance.
     n_seeds : int
         Number of random seeds.
     """
@@ -77,9 +78,9 @@ def make_all_experiments(
         seeds, heads, finetuning_strategies, datasets
     ):
         if finetuning_name == RIDGE_PROBE_NAME:
-            # Ridge probe is deterministic and head-agnostic —
-            # deduplicate across seeds and heads
-            if seed != 0 or head_name != heads[0]:
+            # Ridge probe always uses FlattenHead — deduplicate across heads
+            # (seeds still produce distinct projection matrices, so we keep them all).
+            if head_name != heads[0]:
                 continue
             head_cfg = FlattenHead()
             training_cfg = default_ridge_probing()
