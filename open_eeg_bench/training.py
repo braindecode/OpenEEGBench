@@ -6,7 +6,7 @@ scheduler, early stopping, checkpointing, and logging.
 
 from __future__ import annotations
 
-from typing import ClassVar, TYPE_CHECKING
+from typing import ClassVar, Literal, TYPE_CHECKING
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -77,6 +77,7 @@ class Training(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("device", "num_workers")
+    kind: Literal["sgd"] = "sgd"
 
     max_epochs: int = 50
     lr: float = 5e-4
@@ -147,7 +148,10 @@ class Training(BaseModel):
 
         return cbs
 
-    def build_learner(self, model, callbacks, n_classes, val_set):
+    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1, seed: int = 0):
+        # seed: currently unused — SGD reproducibility comes from the torch
+        # global seeded by Experiment.run() before this call. Accepted so all
+        # training configs share the same `build_learner` signature.
         from torch.optim import AdamW
         from skorch.helper import predefined_split
         from braindecode import EEGClassifier, EEGRegressor
@@ -165,7 +169,7 @@ class Training(BaseModel):
             batch_size=self.batch_size,
             device=self.device,
             callbacks=callbacks,
-            verbose=1,
+            verbose=verbose,
             iterator_train__num_workers=self.num_workers,
             iterator_valid__num_workers=self.num_workers,
         )
@@ -178,3 +182,57 @@ class Training(BaseModel):
             learner = EEGClassifier(classes=classes, **common_kwargs)
 
         return learner
+
+
+class RidgeProbingTraining(BaseModel):
+    """Closed-form ridge regression probing on frozen backbone features.
+
+    Runs three streaming passes: accumulate sufficient statistics on train,
+    select regularization strength on val, predict on test. No gradient-based
+    training, no callbacks.
+
+    Memory (peak, excluding backbone and per-batch activations)
+    -----------------------------------------------------------
+    When ``max_features`` caps the feature dimension at ``k``, peak memory
+    during the fit is dominated by:
+
+    * the projection matrix ``P`` of shape ``(k, D_orig)`` — roughly
+      ``8 · k · D_orig`` bytes (depends on the backbone; zero when
+      ``D_orig ≤ k``, no projection applied).
+    * a fixed cost of **~48 · k²** bytes independent of backbone and dataset,
+      from four persistent ``k×k`` float64 matrices (``X^T X``, centered cov,
+      correlation, eigenvectors) plus the LAPACK workspace of ``torch.linalg.eigh``.
+
+    Typical fixed-cost values (projection matrix not included):
+
+    * ``max_features = 1_000``  → ~50 MB
+    * ``max_features = 5_000``  → ~1.25 GB
+    * ``max_features = 25_000`` → ~30 GB
+    """
+
+    model_config = ConfigDict(extra="forbid")
+    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("device", "num_workers")
+
+    kind: Literal["ridge"] = "ridge"
+    batch_size: int = 64
+    num_workers: int = 0
+    device: str = "cpu"
+    lambdas: list[float] | None = None  # None → use the learner's default fixed log-spaced grid
+    max_features: int | None = 5000  # if set and D > max_features, Gaussian random-project to max_features
+
+    def build_learner(self, model, callbacks, n_classes, val_set, verbose=1, seed: int = 0):
+        from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+
+        # callbacks ignored — no epochs, no early stopping
+        return StreamingRidgeProbeLearner(
+            feature_extractor=model,
+            n_classes=n_classes,
+            batch_size=self.batch_size,
+            num_workers=self.num_workers,
+            device=self.device,
+            lambdas=self.lambdas,
+            val_set=val_set,
+            max_features=self.max_features,
+            projection_seed=seed,
+            verbose=verbose,
+        )

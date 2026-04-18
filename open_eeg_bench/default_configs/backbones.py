@@ -27,6 +27,7 @@ def biot(**overrides) -> PretrainedBackbone:
         peft_ff_modules=["w1", "w2"],
         normalization=PercentileScale(q=95.0),
         hub_repo="braindecode/biot-pretrained-prest-16chs",
+        training_required_modules=["encoder.channel_tokens"],
     )
     defaults.update(overrides)
     return PretrainedBackbone(**defaults)
