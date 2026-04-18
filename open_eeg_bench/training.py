@@ -215,7 +215,7 @@ class RidgeProbingTraining(BaseModel):
     num_workers: int = 0
     device: str = "cpu"
     lambdas: list[float] | None = None  # None → use the learner's default fixed log-spaced grid
-    max_features: int | None = None  # if set and D > max_features, Gaussian random-project to max_features
+    max_features: int | None = 5000  # if set and D > max_features, Gaussian random-project to max_features
     projection_seed: int = 0
 
     def build_learner(self, model, callbacks, n_classes, val_set, verbose=1):
