@@ -22,6 +22,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change default `LoRA.bias` to "none" to match PEFT's default ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 - Allow disabling dropout layers of the backbone (default: True) ([#20](https://github.com/braindecode/OpenEEGBench/pull/20)).
 - Change default `Experiment.seed` from 42 to 0 ([#21](https://github.com/braindecode/OpenEEGBench/pull/21)).
+- Ridge probe: the Gaussian random projection matrix is now seeded by `Experiment.seed` instead of a dedicated `projection_seed` field. Multi-seed runs now produce different projections, enabling variance estimation across seeds.
+- `make_all_experiments` emits ridge probe runs for every seed in `range(n_seeds)` (previously only `seed=0`).
+
+### Removed
+- `RidgeProbingTraining.projection_seed` field.
+- Validator `ridge ⟹ seed == 0` in `Experiment._check_consistency`.
 
 ### Fixed
 - The lazy modules are now initialized before and after applying the PEFT (necessary for some PEFT methods like OFT) ([#17](https://github.com/braindecode/OpenEEGBench/pull/17)).
