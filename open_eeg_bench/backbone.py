@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 from importlib import import_module
-import warnings
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -277,39 +276,54 @@ class PretrainedBackbone(_BraindecodeBackbone):
             len(skipped),
         )
 
-        # Sanity check on missing keys (model keys not loaded from checkpoint).
-        param_names = {name for name, _ in model.named_parameters()}
-        allowed_prefixes = [self.head_module_name]
-        if self.training_required_modules:
-            allowed_prefixes.extend(self.training_required_modules)
+        allowed_modules = [self.head_module_name] + (
+            self.training_required_modules or []
+        )
 
-        def _is_allowed(key: str) -> bool:
-            return any(key == p or key.startswith(p + ".") for p in allowed_prefixes)
+        def covered(k: str) -> bool:
+            return any(f".{m}." in f".{k}." for m in allowed_modules)
 
-        unexpected_params = [
-            k for k in missing if k in param_names and not _is_allowed(k)
+        def describe(k: str) -> str:
+            if k in state_dict:
+                ckpt_shape = tuple(state_dict[k].shape)
+                model_shape = tuple(model_state[k].shape)
+                return f"{k}  [shape mismatch: ckpt {ckpt_shape} vs model {model_shape}]"
+            return f"{k}  [absent from checkpoint]"
+
+        param_names = {n for n, _ in model.named_parameters()}
+        missing_params = [k for k in missing if k in param_names and not covered(k)]
+        missing_buffers = [
+            k for k in missing if k not in param_names and not covered(k)
         ]
-        missing_buffers = [k for k in missing if k not in param_names]
 
-        if unexpected_params:
-            # TODO: 
-            # - FIX the models. 
-            # - Transform this warning into an error
-            warnings.warn(
-                f"Pretrained checkpoint is missing weights for backbone "
-                f"parameters outside of head_module_name and "
-                f"training_required_modules: {unexpected_params}. "
-                f"These parameters keep random initialization, making results "
-                f"seed-dependent. Either provide a checkpoint that covers them "
-                f"or add the relevant modules to training_required_modules.",
-                stacklevel=2,
+        if missing_params:
+            raise ValueError(
+                f"Pretrained checkpoint for {self.model_cls} is missing "
+                f"{len(missing_params)} learnable parameter(s) that are neither "
+                f"under head_module_name='{self.head_module_name}' nor under any "
+                f"module in training_required_modules={self.training_required_modules}:\n"
+                + "\n".join(f"  - {describe(k)}" for k in missing_params)
+                + "\nThese parameters would be silently initialized from scratch, "
+                "which is almost certainly a config error. Either:\n"
+                "  (a) the checkpoint is incompatible with the declared architecture "
+                "(check model_kwargs), or\n"
+                "  (b) these modules should be declared in `training_required_modules` "
+                "so they are explicitly trained from scratch (note: this will "
+                "categorize the model separately in evaluations)."
             )
+
         if missing_buffers:
-            warnings.warn(
-                f"Pretrained checkpoint does not cover the following "
-                f"buffers: {missing_buffers}. They keep their default "
-                f"initialization (typically deterministic).",
-                stacklevel=2,
+            log.warning(
+                "Pretrained checkpoint for %s is missing %d buffer(s) that are "
+                "neither under head_module_name='%s' nor under any module in "
+                "training_required_modules=%s:\n%s\n"
+                "Buffers are not trained, so missing values may be computed at "
+                "init — but verify this is intentional.",
+                self.model_cls,
+                len(missing_buffers),
+                self.head_module_name,
+                self.training_required_modules,
+                "\n".join(f"  - {describe(k)}" for k in missing_buffers),
             )
 
     @staticmethod
