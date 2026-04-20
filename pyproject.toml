@@ -43,6 +43,9 @@ Changelog = "https://github.com/braindecode/OpenEEGBench/blob/master/CHANGELOG.m
 benchopt = ["benchopt>=1.9"]
 dev = ["pytest", "pytest-cov"]
 
+[tool.uv.sources]
+braindecode = { git = "https://github.com/braindecode/braindecode.git" }
+
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["open_eeg_bench*"]
