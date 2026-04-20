@@ -27,6 +27,8 @@ def labram(**overrides) -> PretrainedBackbone:
         model_cls="braindecode.models.Labram",
         # mlp.0 and mlp.2 are the two Linear layers inside the MLP block
         peft_ff_modules=["mlp.0", "mlp.2"],
+        # The temporal_embedding was trained for n_times=3000 only (so there will be a shape mismatch)
+        training_required_modules=["temporal_embedding"],
         normalization=DivideByConstant(factor=100.0),
         hub_repo="braindecode/labram-pretrained",
     )
