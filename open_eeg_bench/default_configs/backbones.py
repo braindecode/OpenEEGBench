@@ -64,7 +64,7 @@ def signal_jepa(**overrides) -> PretrainedBackbone:
         model_cls="braindecode.models.SignalJEPA",
         # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
-        checkpoint_url="https://huggingface.co/braindecode/SignalJEPA/resolve/main/signal-jepa_16s-60_adeuwv4s.pth",
+        hub_repo="braindecode/signal-jepa",
     )
     defaults.update(overrides)
     return PretrainedBackbone(**defaults)
