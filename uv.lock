@@ -227,8 +227,8 @@ wheels = [
 
 [[package]]
 name = "braindecode"
-version = "1.4.0"
-source = { registry = "https://pypi.org/simple" }
+version = "1.5.0.dev0"
+source = { git = "https://github.com/braindecode/braindecode.git#6332ba05d386e30b59d4e0b15fa877ebd96be2fb" }
 dependencies = [
     { name = "docstring-inheritance" },
     { name = "h5py" },
@@ -244,10 +244,6 @@ dependencies = [
     { name = "torchaudio" },
     { name = "torchinfo" },
     { name = "wfdb" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e5/5d/cd6823ce71c860e5ed5d86b320398c22fa89e16f84975c98fa4e04a2ca1e/braindecode-1.4.0.tar.gz", hash = "sha256:fa771dc825e4639e28fdfcf34dc343020dbf33f24f4ac5fb4ce5e6519bb80b82", size = 774709, upload-time = "2026-04-04T17:51:50.825Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0e/40/3b16c319bbc2483498e433a0b3db5b1e6ac0ebd3201331ba1b0f41c1ed65/braindecode-1.4.0-py3-none-any.whl", hash = "sha256:fa01c24a6ba6ba1211e748fd5d5b47fecc3ea7aba1b35ba35568f3a19738b0f3", size = 497920, upload-time = "2026-04-04T17:51:48.914Z" },
 ]
 
 [package.optional-dependencies]
@@ -2123,7 +2119,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "benchopt", marker = "extra == 'benchopt'", specifier = ">=1.9" },
-    { name = "braindecode", extras = ["hub"], specifier = ">=1.4.0" },
+    { name = "braindecode", extras = ["hub"], git = "https://github.com/braindecode/braindecode.git" },
     { name = "exca", specifier = ">=0.5.10" },
     { name = "numpy" },
     { name = "pandas" },
