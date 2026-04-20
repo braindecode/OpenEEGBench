@@ -70,7 +70,20 @@ class OriginalHead(BaseModel):
         log.info("Keeping original head '%s'", head_module_name)
 
 
+class FlattenHead(BaseModel):
+    """Replace the head with nn.Flatten(1). For ridge probing only."""
+
+    model_config = ConfigDict(extra="forbid")
+    kind: Literal["flatten"] = "flatten"
+
+    def apply(self, model, n_outputs: int, head_module_name: str) -> None:
+        import torch.nn as nn
+
+        setattr(model, head_module_name, nn.Flatten(1))
+        log.info("Replaced '%s' with FlattenHead", head_module_name)
+
+
 Head = Annotated[
-    Union[LinearHead, MLPHead, OriginalHead],
+    Union[LinearHead, MLPHead, OriginalHead, FlattenHead],
     Field(discriminator="kind"),
 ]

@@ -79,12 +79,17 @@ def benchmark(
         ``"seed_vig"``, ``"tuab"``, ``"tuev"``.
     finetuning_strategies : list[str], optional
         Finetuning strategy names. If ``None``, uses ``["frozen"]``
-        (linear probing). Valid names: ``"frozen"``, ``"lora"``,
-        ``"ia3"``, ``"adalora"``, ``"dora"``, ``"oft"``,
+        (linear probing). Valid names: ``"frozen"``, ``"ridge_probe"``,
+        ``"lora"``, ``"ia3"``, ``"adalora"``, ``"dora"``, ``"oft"``,
         ``"full_finetune"``, ``"two_stages"``.
+        ``"ridge_probe"`` performs closed-form ridge regression linear
+        probing with no gradient-based training; regularization strength
+        is selected automatically from a fixed grid using the validation set.
     heads : list[str], optional
         Head names to evaluate. If ``None``, uses ``["linear_head"]``.
         Valid names: ``"linear_head"``, ``"mlp_head"``, ``"original_head"``.
+        Ignored for ``"ridge_probe"`` (which always uses ``FlattenHead``
+        by definition).
     n_seeds : int
         Number of random seeds for initialization of the heads and new layers.
     infra : dict, optional

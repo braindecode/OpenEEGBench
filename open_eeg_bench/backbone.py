@@ -14,6 +14,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 from importlib import import_module
+import warnings
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -251,6 +252,41 @@ class PretrainedBackbone(_BackboneBase):
             len(missing),
             len(skipped),
         )
+
+        # Sanity check on missing keys (model keys not loaded from checkpoint).
+        param_names = {name for name, _ in model.named_parameters()}
+        allowed_prefixes = [self.head_module_name]
+        if self.training_required_modules:
+            allowed_prefixes.extend(self.training_required_modules)
+
+        def _is_allowed(key: str) -> bool:
+            return any(key == p or key.startswith(p + ".") for p in allowed_prefixes)
+
+        unexpected_params = [
+            k for k in missing if k in param_names and not _is_allowed(k)
+        ]
+        missing_buffers = [k for k in missing if k not in param_names]
+
+        if unexpected_params:
+            # TODO: 
+            # - FIX the models. 
+            # - Transform this warning into an error
+            warnings.warn(
+                f"Pretrained checkpoint is missing weights for backbone "
+                f"parameters outside of head_module_name and "
+                f"training_required_modules: {unexpected_params}. "
+                f"These parameters keep random initialization, making results "
+                f"seed-dependent. Either provide a checkpoint that covers them "
+                f"or add the relevant modules to training_required_modules.",
+                stacklevel=2,
+            )
+        if missing_buffers:
+            warnings.warn(
+                f"Pretrained checkpoint does not cover the following "
+                f"buffers: {missing_buffers}. They keep their default "
+                f"initialization (typically deterministic).",
+                stacklevel=2,
+            )
 
     @staticmethod
     def _load_from_hub(repo_id: str) -> dict:

@@ -54,6 +54,16 @@ class TestHeads:
         out = model(torch.randn(2, N_CHANS, N_TIMES))
         assert out.shape == (2, N_OUTPUTS)
 
+    def test_flatten_head(self):
+        from open_eeg_bench.head import FlattenHead
+        backbone, model = _build_biot()
+        FlattenHead().apply(model, N_OUTPUTS, backbone.head_module_name)
+        _init_lazy(model)
+        out = model(torch.randn(2, N_CHANS, N_TIMES))
+        # Flatten(1) yields (B, D) — D depends on backbone but must be 2D
+        assert out.ndim == 2
+        assert out.shape[0] == 2
+
 
 class TestFinetuning:
     def test_frozen(self):
