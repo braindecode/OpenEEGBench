@@ -38,10 +38,9 @@ def labram(**overrides) -> PretrainedBackbone:
 
 def bendr(**overrides) -> PretrainedBackbone:
     defaults = dict(
-        model_cls="braindecode.models.BENDR",
+        model_cls="braindecode.models.InterpolatedBENDR",
         # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
-        training_required_modules=["channel_projection"],
         normalization=MinMaxScale(),
         hub_repo="braindecode/braindecode-bendr",
     )
@@ -63,7 +62,7 @@ def cbramod(**overrides) -> PretrainedBackbone:
 
 def signal_jepa(**overrides) -> PretrainedBackbone:
     defaults = dict(
-        model_cls="braindecode.models.SignalJEPA",
+        model_cls="braindecode.models.InterpolatedSignalJEPA",
         # linear1, linear2 are the FFN layers in TransformerEncoderLayer
         peft_ff_modules=["linear1", "linear2"],
         hub_repo="braindecode/signal-jepa",
