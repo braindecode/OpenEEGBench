@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import logging
 import warnings
-from typing import TYPE_CHECKING, Annotated, Literal, Union
+from typing import TYPE_CHECKING, Annotated, Literal, Union, ClassVar
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -112,13 +112,16 @@ class Dataset(BaseModel):
             "e.g. 'standard_1005'. Use when channel positions are missing."
         ),
     )
+    preload: bool = False
+    
+    _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("preload",)
 
     def load(self):
         """Pull windowed dataset from HuggingFace Hub."""
         from braindecode.datasets import BaseConcatDataset
 
         log.info("Loading dataset from HuggingFace Hub: %s", self.hf_id)
-        return BaseConcatDataset.pull_from_hub(self.hf_id, preload=False)
+        return BaseConcatDataset.pull_from_hub(self.hf_id, preload=self.preload)
 
     def setup(self, normalization):
         """Load dataset, apply normalization, split, and return sets.
