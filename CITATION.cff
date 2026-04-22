@@ -39,6 +39,10 @@ authors:
     affiliation: "Swartz Center for Computational Neuroscience, Institute for Neural Computation, San Diego Supercomputer Center, University of California San Diego, USA; CNRS, France"
 version: 0.3.0
 date-released: "2026-04-22"
+identifiers:
+  - type: doi
+    value: 10.5281/zenodo.19698863
+    description: "Concept DOI — resolves to the latest archived version on Zenodo."
 repository-code: "https://github.com/braindecode/OpenEEGBench"
 url: "https://huggingface.co/spaces/braindecode/OpenEEGBench"
 license: BSD-3-Clause

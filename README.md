@@ -4,7 +4,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/open-eeg-bench.svg)](https://pypi.org/project/open-eeg-bench/)
 [![Tests](https://github.com/braindecode/OpenEEGBench/actions/workflows/main.yml/badge.svg)](https://github.com/braindecode/OpenEEGBench/actions/workflows/main.yml)
 [![Python versions](https://img.shields.io/pypi/pyversions/open-eeg-bench.svg)](https://pypi.org/project/open-eeg-bench/)
-[![DOI](https://zenodo.org/badge/DOI/TODO.svg)](https://doi.org/TODO)
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.19698863.svg)](https://doi.org/10.5281/zenodo.19698863)
 
 
 **Benchmark any EEG foundation model with one function call.**
@@ -136,7 +136,7 @@ Machine-readable metadata is provided in [CITATION.cff](CITATION.cff) — used b
   author    = {Guetschel, Pierre and Aristimunha, Bruno and Truong, Dung and Kokate, Kuntal and Moreau, Thomas and Tangermann, Michael and Delorme, Arnaud},
   year      = {2026},
   url       = {https://github.com/braindecode/OpenEEGBench},
-  doi       = {10.5281/zenodo.TODO}
+  doi       = {10.5281/zenodo.19698863}
 }
 ```
 
