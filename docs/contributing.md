@@ -28,6 +28,7 @@ pytest -k "test_name"                 # single test
 
 **TODO list when releasing a new version:**
 - [ ] Update `version` in `pyproject.toml`
+- [ ] Update the `cff-version` in `CITATION.cff`
 - [ ] Update the "Unreleased" section in `CHANGELOG.md` with the new version and release date, and move the changes from "Unreleased" to the new version section
 - [ ] Add a link for the new version at the bottom of `CHANGELOG.md`
 - [ ] Modify the "Unreleased" link at the bottom of `CHANGELOG.md` to point to the new version's commit range
