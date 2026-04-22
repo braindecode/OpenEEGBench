@@ -313,6 +313,7 @@ def collect_completed_results(
         row = {
             "backbone": backbone.model_cls.split(".")[-1],
             "dataset": exp.dataset.hf_id,
+            'training': exp.training.kind,
             "finetuning": exp.finetuning.kind,
             "head": exp.head.kind,
             "seed": exp.seed,
