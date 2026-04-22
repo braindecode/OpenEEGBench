@@ -37,8 +37,8 @@ authors:
     family-names: Delorme
     email: adelorme@ucsd.edu
     affiliation: "Swartz Center for Computational Neuroscience, Institute for Neural Computation, San Diego Supercomputer Center, University of California San Diego, USA; CNRS, France"
-version: 0.2.1
-date-released: "2026-04-07"
+version: 0.3.0
+date-released: "2026-04-22"
 repository-code: "https://github.com/braindecode/OpenEEGBench"
 url: "https://huggingface.co/spaces/braindecode/OpenEEGBench"
 license: BSD-3-Clause
