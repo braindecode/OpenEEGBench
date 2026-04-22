@@ -5,7 +5,11 @@ import torch
 import mne
 from huggingface_hub.errors import GatedRepoError
 
+from open_eeg_bench.backbone import ScratchBackbone
 from open_eeg_bench.default_configs.backbones import ALL_BACKBONES
+from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+from open_eeg_bench.experiment import Experiment
+from open_eeg_bench.finetuning import FullFinetune, Frozen, LoRA
 
 # Use standard 10-20 channel names that all models recognize
 CH_NAMES = [
@@ -69,3 +73,56 @@ def test_backbone_has_head_module(factory, chs_info):
         f"Model has no attribute '{backbone.head_module_name}'. "
         f"Available: {[n for n, _ in model.named_children()]}"
     )
+
+
+def _eegnet_scratch() -> ScratchBackbone:
+    return ScratchBackbone(
+        model_cls="braindecode.models.EEGNet",
+        peft_target_modules=None,
+        head_module_name="final_layer",
+    )
+
+
+def test_scratch_backbone_build_and_forward(chs_info):
+    """ScratchBackbone instantiates an EEGNet model with random weights."""
+    backbone = _eegnet_scratch()
+    model = backbone.build(
+        n_chans=N_CHANS,
+        n_times=N_TIMES,
+        n_outputs=N_OUTPUTS,
+        sfreq=SFREQ,
+        chs_info=chs_info,
+    )
+    x = torch.randn(2, N_CHANS, N_TIMES)
+    with torch.no_grad():
+        model.eval()
+        out = model(x)
+    assert out.shape[0] == 2
+    assert hasattr(model, backbone.head_module_name)
+
+
+def test_scratch_backbone_requires_full_finetune():
+    """ScratchBackbone with anything other than FullFinetune must be rejected."""
+    with pytest.raises(ValueError, match="ScratchBackbone.*FullFinetune"):
+        Experiment(
+            backbone=_eegnet_scratch(),
+            finetuning=Frozen(),
+            dataset=arithmetic_zyma2019(),
+        )
+    with pytest.raises(ValueError, match="ScratchBackbone.*FullFinetune"):
+        Experiment(
+            backbone=_eegnet_scratch(),
+            finetuning=LoRA(),
+            dataset=arithmetic_zyma2019(),
+        )
+
+
+def test_scratch_backbone_with_full_finetune_accepted():
+    """ScratchBackbone + FullFinetune is a valid combination."""
+    exp = Experiment(
+        backbone=_eegnet_scratch(),
+        finetuning=FullFinetune(),
+        dataset=arithmetic_zyma2019(),
+    )
+    assert exp.backbone.kind == "scratch"
+    assert exp.finetuning.kind == "full"
