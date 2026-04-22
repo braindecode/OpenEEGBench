@@ -128,7 +128,7 @@ BSD-3-Clause (see [LICENSE.txt](LICENSE.txt))
 ## 📣 Citation
 
 If you use Open EEG Bench in your research, please cite it.
-Machine-readable metadata is provided in [CITATION.cff](CITATION.cff) (for GitHub / reference managers) and [.zenodo.json](.zenodo.json) (for Zenodo releases).
+Machine-readable metadata is provided in [CITATION.cff](CITATION.cff) — used by GitHub's "Cite this repository" button, reference managers, and Zenodo when archiving releases.
 
 ```bibtex
 @software{open_eeg_bench,
