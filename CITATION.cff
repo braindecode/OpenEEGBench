@@ -27,6 +27,7 @@ authors:
     affiliation: "University of California San Diego, USA"
   - given-names: Thomas
     family-names: Moreau
+    orcid: "https://orcid.org/0000-0002-1523-3419"
     affiliation: "INRIA, France"
   - given-names: Michael
     family-names: Tangermann
