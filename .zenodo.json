@@ -1,0 +1,52 @@
+{
+  "title": "Open EEG Bench: Benchmarking parameter-efficient fine-tuning of EEG foundation models",
+  "description": "<p>Open EEG Bench is a Python library for evaluating EEG foundation models across 12 pre-windowed neuroscience datasets and 8 fine-tuning strategies (frozen linear probing, ridge probing, LoRA, IA3, AdaLoRA, DoRA, OFT, full fine-tuning, and two-stage training). A single <code>benchmark()</code> call produces a comparable, reproducible evaluation suitable for local or SLURM-cluster execution.</p>",
+  "upload_type": "software",
+  "access_right": "open",
+  "license": "BSD-3-Clause",
+  "creators": [
+    {
+      "name": "Guetschel, Pierre",
+      "affiliation": "Donders Institute for Brain, Cognition and Behaviour, Radboud University, Nijmegen, The Netherlands",
+      "orcid": "0000-0002-8933-7640"
+    },
+    {
+      "name": "Aristimunha, Bruno",
+      "affiliation": "Yneuro, Paris, France; University of California San Diego, USA",
+      "orcid": "0000-0001-5258-2995"
+    },
+    {
+      "name": "Truong, Dung",
+      "affiliation": "University of California San Diego, USA"
+    },
+    {
+      "name": "Kokate, Kuntal",
+      "affiliation": "University of California San Diego, USA"
+    },
+    {
+      "name": "Moreau, Thomas",
+      "affiliation": "INRIA, France"
+    },
+    {
+      "name": "Tangermann, Michael",
+      "affiliation": "Donders Institute for Brain, Cognition and Behaviour, Radboud University, Nijmegen, The Netherlands",
+      "orcid": "0000-0001-6729-0290"
+    },
+    {
+      "name": "Delorme, Arnaud",
+      "affiliation": "Swartz Center for Computational Neuroscience, Institute for Neural Computation, San Diego Supercomputer Center, University of California San Diego, USA; CNRS, France"
+    }
+  ],
+  "keywords": [
+    "EEG",
+    "electroencephalography",
+    "benchmark",
+    "foundation models",
+    "deep learning",
+    "parameter-efficient fine-tuning",
+    "PEFT",
+    "LoRA",
+    "brain-computer interfaces",
+    "neuroscience"
+  ]
+}

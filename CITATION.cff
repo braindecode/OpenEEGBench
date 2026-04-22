@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: "If you use Open EEG Bench in your research, please cite it using the metadata below."
+title: "Open EEG Bench: Benchmarking parameter-efficient fine-tuning of EEG foundation models"
+abstract: >-
+  Open EEG Bench is a Python library for evaluating EEG foundation models across
+  12 pre-windowed neuroscience datasets and 8 fine-tuning strategies (frozen
+  linear probing, ridge probing, LoRA, IA3, AdaLoRA, DoRA, OFT, full fine-tuning,
+  and two-stage training). A single benchmark() call produces a comparable,
+  reproducible evaluation suitable for local or SLURM-cluster execution.
+type: software
+authors:
+  - given-names: Pierre
+    family-names: Guetschel
+    orcid: "https://orcid.org/0000-0002-8933-7640"
+    affiliation: "Donders Institute for Brain, Cognition and Behaviour, Radboud University, Nijmegen, The Netherlands"
+  - given-names: Bruno
+    family-names: Aristimunha
+    orcid: "https://orcid.org/0000-0001-5258-2995"
+    affiliation: "Yneuro, Paris, France; University of California San Diego, USA"
+  - given-names: Dung
+    family-names: Truong
+    email: dutruong@ucsd.edu
+    affiliation: "University of California San Diego, USA"
+  - given-names: Kuntal
+    family-names: Kokate
+    email: kkokate@ucsd.edu
+    affiliation: "University of California San Diego, USA"
+  - given-names: Thomas
+    family-names: Moreau
+    affiliation: "INRIA, France"
+  - given-names: Michael
+    family-names: Tangermann
+    orcid: "https://orcid.org/0000-0001-6729-0290"
+    affiliation: "Donders Institute for Brain, Cognition and Behaviour, Radboud University, Nijmegen, The Netherlands"
+  - given-names: Arnaud
+    family-names: Delorme
+    email: adelorme@ucsd.edu
+    affiliation: "Swartz Center for Computational Neuroscience, Institute for Neural Computation, San Diego Supercomputer Center, University of California San Diego, USA; CNRS, France"
+version: 0.2.1
+date-released: "2026-04-07"
+repository-code: "https://github.com/braindecode/OpenEEGBench"
+url: "https://huggingface.co/spaces/braindecode/OpenEEGBench"
+license: BSD-3-Clause
+keywords:
+  - EEG
+  - electroencephalography
+  - benchmark
+  - foundation models
+  - deep learning
+  - parameter-efficient fine-tuning
+  - PEFT
+  - LoRA
+  - brain-computer interfaces
+  - neuroscience

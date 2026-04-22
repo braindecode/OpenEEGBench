@@ -4,6 +4,7 @@
 [![PyPI version](https://img.shields.io/pypi/v/open-eeg-bench.svg)](https://pypi.org/project/open-eeg-bench/)
 [![Tests](https://github.com/braindecode/OpenEEGBench/actions/workflows/main.yml/badge.svg)](https://github.com/braindecode/OpenEEGBench/actions/workflows/main.yml)
 [![Python versions](https://img.shields.io/pypi/pyversions/open-eeg-bench.svg)](https://pypi.org/project/open-eeg-bench/)
+[![DOI](https://zenodo.org/badge/DOI/TODO.svg)](https://doi.org/TODO)
 
 
 **Benchmark any EEG foundation model with one function call.**
@@ -123,6 +124,21 @@ All 12 datasets are pre-windowed and hosted on [HuggingFace Hub](https://hugging
 ## 📄 License
 
 BSD-3-Clause (see [LICENSE.txt](LICENSE.txt))
+
+## 📣 Citation
+
+If you use Open EEG Bench in your research, please cite it.
+Machine-readable metadata is provided in [CITATION.cff](CITATION.cff) (for GitHub / reference managers) and [.zenodo.json](.zenodo.json) (for Zenodo releases).
+
+```bibtex
+@software{open_eeg_bench,
+  title     = {Open EEG Bench: Benchmarking parameter-efficient fine-tuning of EEG foundation models},
+  author    = {Guetschel, Pierre and Aristimunha, Bruno and Truong, Dung and Kokate, Kuntal and Moreau, Thomas and Tangermann, Michael and Delorme, Arnaud},
+  year      = {2026},
+  url       = {https://github.com/braindecode/OpenEEGBench},
+  doi       = {10.5281/zenodo.TODO}
+}
+```
 
 ## 📚 Further reading
 
