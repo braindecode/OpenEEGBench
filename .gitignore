@@ -18,3 +18,6 @@ results/
 scripts/
 benchmark_open_eeg/outputs/
 benchmark_open_eeg/__cache__/
+tmp*
+figures*
+docs/superpowers
