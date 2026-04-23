@@ -317,9 +317,13 @@ def collect_completed_results(
                 f"Experiment {exp.infra.uid()} has status '{status}', skipping result collection."
             )
             continue
-        assert isinstance(  # for type checking
-            (backbone := exp.backbone), _BraindecodeBackbone
-        )
+        backbone = exp.backbone
+        if not isinstance(backbone, _BraindecodeBackbone):
+            raise TypeError(
+                f"collect_completed_results does not support backbone of type "
+                f"{type(backbone).__name__}; only _BraindecodeBackbone subclasses "
+                f"(PretrainedBackbone, ScratchBackbone) are supported."
+            )
         row = {
             "backbone": backbone.model_cls.split(".")[-1],
             "dataset": exp.dataset.hf_id,
