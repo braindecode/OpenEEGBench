@@ -23,16 +23,18 @@ if TYPE_CHECKING:
 from open_eeg_bench.backbone import (
     PlaceholderBackbone,
     PretrainedBackbone,
+    ScratchBackbone,
     _BackboneBase,
+    _BraindecodeBackbone,
 )
 from open_eeg_bench.dataset import Dataset
-from open_eeg_bench.finetuning import AdaLoRA, Finetuning, Frozen
+from open_eeg_bench.finetuning import AdaLoRA, Finetuning, Frozen, FullFinetune
 from open_eeg_bench.head import Head, LinearHead, OriginalHead, FlattenHead
 from open_eeg_bench.training import Training, RidgeProbingTraining
 
 # Backbone union with discriminator so exca can compute deterministic UIDs.
 _Backbone = Annotated[
-    Union[PretrainedBackbone, PlaceholderBackbone],
+    Union[PretrainedBackbone, ScratchBackbone, PlaceholderBackbone],
     Field(discriminator="kind"),
 ]
 
@@ -92,6 +94,14 @@ class Experiment(BaseModel):
             raise ValueError(
                 "Frozen finetuning with OriginalHead trains nothing new. "
                 "Use LinearHead or MLPHead instead."
+            )
+
+        if isinstance(self.backbone, ScratchBackbone) and not isinstance(
+            self.finetuning, FullFinetune
+        ):
+            raise ValueError(
+                "ScratchBackbone can only be used with FullFinetune finetuning "
+                "(no pretrained weights to freeze or adapt)."
             )
         return self
 
@@ -308,7 +318,7 @@ def collect_completed_results(
             )
             continue
         assert isinstance(  # for type checking
-            (backbone := exp.backbone), PretrainedBackbone
+            (backbone := exp.backbone), _BraindecodeBackbone
         )
         row = {
             "backbone": backbone.model_cls.split(".")[-1],

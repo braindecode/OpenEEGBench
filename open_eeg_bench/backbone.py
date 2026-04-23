@@ -1,9 +1,13 @@
 """Backbone architecture configurations.
 
-``_BackboneBase`` defines the interface shared by every backbone config.
-``PretrainedBackbone`` is the concrete implementation: it takes an
-``ImportString`` pointing to any braindecode (or compatible) model class
-plus free-form constructor kwargs.
+``_BackboneBase`` defines the coupling fields and ``build()`` wrapper shared
+by every backbone config.  ``_BraindecodeBackbone`` adds the braindecode-style
+``model_cls`` + ``model_kwargs`` instantiation logic used by the two concrete
+implementations:
+
+* ``PretrainedBackbone`` — loads pretrained weights from HF Hub, a URL, or a
+  local checkpoint.
+* ``ScratchBackbone`` — trains from random initialization (no weights loaded).
 
 Default configurations for each supported architecture live in
 ``default_configs.backbones``.
@@ -128,8 +132,8 @@ class _BackboneBase(BaseModel):
 # ============================================================================
 
 
-class PretrainedBackbone(_BackboneBase):
-    """Generic backbone backed by any braindecode-compatible model class.
+class _BraindecodeBackbone(_BackboneBase):
+    """Base for backbones backed by any braindecode-compatible model class.
 
     Parameters
     ----------
@@ -139,22 +143,10 @@ class PretrainedBackbone(_BackboneBase):
     model_kwargs : dict
         Keyword arguments forwarded to the model constructor
         (architecture hyperparameters).
-    hub_repo : str, optional
-        HuggingFace Hub repo ID for pretrained weights, e.g. ``"braindecode/biot-pretrained-prest-16chs"``.
-    checkpoint_url : str, optional
-        Direct URL for pretrained weights (e.g. a .bin or .safetensors file).
-    checkpoint_path : str, optional
-        Local filesystem path to pretrained weights (.pth, .bin, or .safetensors).
-        Supports both raw state dicts and checkpoint dicts with a ``"state_dict"`` key.
     """
-
-    kind: Literal["hf_hub"] = "hf_hub"
 
     model_cls: str
     model_kwargs: dict[str, Any] = Field(default_factory=dict)
-    hub_repo: str | None = None
-    checkpoint_url: str | None = None
-    checkpoint_path: str | None = None
 
     def _resolve_model_cls(self):
         """Resolve and return the model class from a dotted import path.
@@ -176,7 +168,7 @@ class PretrainedBackbone(_BackboneBase):
         sfreq: float,
         chs_info: list | None = None,
     ):
-        """Instantiate the backbone model."""
+        """Instantiate the backbone model (without loading any weights)."""
         cls = self._resolve_model_cls()
         kwargs = self.model_kwargs.copy()
         kwargs.update(
@@ -186,7 +178,39 @@ class PretrainedBackbone(_BackboneBase):
             sfreq=sfreq,
             chs_info=chs_info,
         )
-        model = cls(**kwargs)
+        return cls(**kwargs)
+
+
+class PretrainedBackbone(_BraindecodeBackbone):
+    """Braindecode-compatible backbone initialized from pretrained weights.
+
+    Parameters
+    ----------
+    hub_repo : str, optional
+        HuggingFace Hub repo ID for pretrained weights, e.g. ``"braindecode/biot-pretrained-prest-16chs"``.
+    checkpoint_url : str, optional
+        Direct URL for pretrained weights (e.g. a .bin or .safetensors file).
+    checkpoint_path : str, optional
+        Local filesystem path to pretrained weights (.pth, .bin, or .safetensors).
+        Supports both raw state dicts and checkpoint dicts with a ``"state_dict"`` key.
+    """
+
+    kind: Literal["hf_hub"] = "hf_hub"
+
+    hub_repo: str | None = None
+    checkpoint_url: str | None = None
+    checkpoint_path: str | None = None
+
+    def _build(
+        self,
+        n_chans: int,
+        n_times: int,
+        n_outputs: int,
+        sfreq: float,
+        chs_info: list | None = None,
+    ):
+        """Instantiate the backbone model and load pretrained weights."""
+        model = super()._build(n_chans, n_times, n_outputs, sfreq, chs_info)
         self.load_pretrained(model)
         return model
 
@@ -301,6 +325,17 @@ class PretrainedBackbone(_BackboneBase):
         except Exception:
             path = hf_hub_download(repo_id=repo_id, filename="pytorch_model.bin")
             return torch.load(path, map_location="cpu", weights_only=False)
+
+
+class ScratchBackbone(_BraindecodeBackbone):
+    """Braindecode-compatible backbone trained from random initialization.
+
+    Unlike :class:`PretrainedBackbone`, no weights are loaded — the model is
+    instantiated and trained from scratch.  Only compatible with the
+    ``FullFinetune`` strategy (enforced by the ``Experiment`` validator).
+    """
+
+    kind: Literal["scratch"] = "scratch"
 
 
 class PlaceholderBackbone(_BackboneBase):
