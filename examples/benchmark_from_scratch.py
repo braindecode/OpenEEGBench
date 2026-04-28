@@ -13,11 +13,19 @@ import open_eeg_bench as oeb
 
 # Braindecode classifiers that build with the generic kwargs we forward
 # (n_chans, n_outputs, n_times, sfreq, chs_info) and expose ``final_layer`` as
-# the head module. Pretrained foundation models (BIOT, Labram, BENDR, CBraMod,
-# REVE, SignalJEPA, EEGPT, LUNA) are intentionally omitted — they have factories
-# in default_configs.backbones and are meant to be loaded with weights.
+# the head module. Verified by a 1-epoch CPU smoke run on arithmetic_zyma2019
+# (33/33 trained successfully).
+#
+# Pretrained foundation models (BIOT, Labram, BENDR, CBraMod, REVE, SignalJEPA,
+# EEGPT, LUNA) are intentionally omitted — they have factories in
+# default_configs.backbones and are meant to be loaded with weights.
+#
+# Excluded after smoke run:
+#   - ATCNet     : returns auxiliary outputs in train mode → skorch collation fails
+#   - EEGSym     : forward fails on generic shapes (designed for paired hemispheres)
+#   - HybridNet  : forward returns 3D tensor [batch, classes, time] instead of [batch, classes]
+#   - TCN, AttnSleep, SleepStagerBlanco2020 : do not build with the generic kwarg set
 BRAINDECODE_SCRATCH_MODELS = [
-    "braindecode.models.ATCNet",
     "braindecode.models.AttentionBaseNet",
     "braindecode.models.BDTCN",
     "braindecode.models.CTNet",
@@ -34,12 +42,10 @@ BRAINDECODE_SCRATCH_MODELS = [
     "braindecode.models.EEGNet",
     "braindecode.models.EEGNetv4",
     "braindecode.models.EEGSimpleConv",
-    "braindecode.models.EEGSym",
     "braindecode.models.EEGTCNet",
     "braindecode.models.FBCNet",
     "braindecode.models.FBLightConvNet",
     "braindecode.models.FBMSNet",
-    "braindecode.models.HybridNet",
     "braindecode.models.IFNet",
     "braindecode.models.MEDFormer",
     "braindecode.models.MSVTNet",
