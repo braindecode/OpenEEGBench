@@ -32,6 +32,22 @@ def _default_lambdas() -> list[float]:
     return [10**e for e in range(-8, 9)]
 
 
+def _balanced_class_weights(
+    train_loader: "DataLoader", n_classes: int, device: str
+) -> torch.Tensor:
+    """One label-only pass over train; returns sklearn-style "balanced" weights.
+
+    ``w[c] = N / (n_classes * count[c])`` so that ``sum_i w_{y_i} == N`` and the
+    effective sample size is preserved. Empty classes are clamped to 1 sample
+    to avoid div-by-zero (their weight then has no effect on accumulation).
+    """
+    counts = torch.zeros(n_classes, dtype=torch.float64, device=device)
+    for batch in train_loader:
+        y = batch[1].to(device).long()
+        counts += torch.bincount(y, minlength=n_classes).to(counts.dtype)
+    return counts.sum() / (n_classes * counts.clamp(min=1.0))
+
+
 def _make_projection_matrix(
     n_features: int, n_components: int, seed: int, device: str
 ) -> torch.Tensor:
@@ -58,12 +74,21 @@ def _fit_streaming_ridge(
     device: str,
     max_features: int | None = None,
     projection_seed: int = 0,
+    class_weight: str | None = "balanced",
 ) -> dict:
     """Fit streaming ridge probe, select λ on val, return weights + diagnostics.
 
     If ``max_features`` is set and the backbone emits more features than that,
     features are projected down to ``max_features`` dimensions via a Gaussian
     random projection (seeded by ``projection_seed``) before accumulation.
+
+    ``class_weight`` controls per-sample weighting in the weighted-least-squares
+    fit. Only meaningful when ``n_classes`` is set (classification); silently
+    ignored for regression. Supported values:
+
+    * ``"balanced"`` (default): sklearn-style ``N / (n_classes * count[c])``
+      weights. Costs one extra label-only pass over the train loader.
+    * ``None``: unweighted (every sample contributes equally).
 
     Returns dict with keys: W (D,C), bias (C,), best_lambda (float),
     val_scores (dict λ→score), lambdas (list[float]), n_classes, n_features D
@@ -72,10 +97,19 @@ def _fit_streaming_ridge(
     model.eval()
     model.to(device)
 
-    # ----- Pass 1: accumulate sufficient statistics on train -----
+    # ----- Pass 0 (optional, classification only): per-class weights from labels -----
+    class_weights = None
+    if class_weight == "balanced" and n_classes is not None:
+        class_weights = _balanced_class_weights(train_loader, n_classes, device)
+    elif class_weight not in (None, "balanced"):
+        raise ValueError(
+            f"class_weight must be 'balanced' or None, got {class_weight!r}."
+        )
+
+    # ----- Pass 1: accumulate (optionally weighted) sufficient statistics on train -----
     A = B = s_h = s_h2 = s_y = None
     projection = None  # (k, D_orig) float64; lazily built once D_orig is known
-    N = 0
+    N = 0.0  # sum of sample weights (== n_samples when unweighted)
     with torch.no_grad():
         for batch in train_loader:
             x, y = batch[0], batch[1]
@@ -94,8 +128,16 @@ def _fit_streaming_ridge(
                 )
             if projection is not None:
                 h64 = h64 @ projection.T  # (B, k)
-            y_enc = _encode_targets(y.to(device), n_classes)
+            y_dev = y.to(device)
+            y_enc = _encode_targets(y_dev, n_classes)
             y64 = y_enc.double()
+
+            if class_weights is not None:
+                w = class_weights[y_dev.long()]  # (B,) float64
+            else:
+                w = torch.ones(h64.shape[0], dtype=torch.float64, device=device)
+            hw = h64 * w.unsqueeze(1)  # (B, D), each row h_i scaled by w_i
+            yw = y64 * w.unsqueeze(1)  # (B, C)
 
             if A is None:
                 D = h64.shape[1]
@@ -106,12 +148,12 @@ def _fit_streaming_ridge(
                 s_h2 = torch.zeros(D, dtype=torch.float64, device=device)
                 s_y = torch.zeros(C, dtype=torch.float64, device=device)
 
-            A += h64.T @ h64
-            B += h64.T @ y64
-            s_h += h64.sum(0)
-            s_h2 += (h64**2).sum(0)
-            s_y += y64.sum(0)
-            N += h64.shape[0]
+            A += hw.T @ h64
+            B += hw.T @ y64
+            s_h += hw.sum(0)
+            s_h2 += (hw * h64).sum(0)
+            s_y += yw.sum(0)
+            N += float(w.sum().item())
 
     if A is None:
         raise ValueError("Empty train_loader — no features accumulated.")
@@ -277,6 +319,7 @@ class StreamingRidgeProbeLearner:
         val_set,
         max_features: int | None = None,
         projection_seed: int = 0,
+        class_weight: str | None = "balanced",
         verbose: int = 1,
     ):
         self.model_ = feature_extractor
@@ -288,6 +331,7 @@ class StreamingRidgeProbeLearner:
         self.val_set = val_set
         self.max_features = max_features
         self.projection_seed = projection_seed
+        self.class_weight = class_weight
         self.verbose = verbose
         self._result: dict | None = None
 
@@ -321,6 +365,7 @@ class StreamingRidgeProbeLearner:
             device=self.device,
             max_features=self.max_features,
             projection_seed=self.projection_seed,
+            class_weight=self.class_weight,
         )
         if self.verbose:
             metric = "R²" if self.n_classes_ is None else "balanced_acc"
