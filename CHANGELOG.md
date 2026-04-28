@@ -9,8 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Add `ScratchBackbone` for benchmarking DL models without pretrained weights. Only compatible with `FullFinetune` (enforced by the `Experiment` validator) ([#30](https://github.com/braindecode/OpenEEGBench/pull/30)).
-- Add `class_weight` parameter to `RidgeProbingTraining` (`"balanced"` or `None`); **default changed to `"balanced"`** — pass `None` for the previous unweighted behavior.
-- Add `dtype` parameter to `RidgeProbingTraining` (`"float32"` or `"float64"`, default `"float64"`). Use `"float32"` only when necessary, e.g. on Apple MPS which does not support float64.
+- Add `class_weight` parameter to `RidgeProbingTraining` (`"balanced"` or `None`); **default changed to `"balanced"`** — pass `None` for the previous unweighted behavior ([#32](https://github.com/braindecode/OpenEEGBench/pull/32)).
+- Add `dtype` parameter to `RidgeProbingTraining` (`"float32"` or `"float64"`, default `"float64"`). Use `"float32"` only when necessary, e.g. on Apple MPS which does not support float64 ([#32](https://github.com/braindecode/OpenEEGBench/pull/32)).
 
 ### Changed
 - Fill in the Zenodo concept DOI (`10.5281/zenodo.19698863`) in the README DOI badge and the BibTeX snippet, and add it as an `identifiers` entry in `CITATION.cff`.
