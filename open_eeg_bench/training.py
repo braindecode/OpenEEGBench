@@ -220,6 +220,7 @@ class RidgeProbingTraining(BaseModel):
     lambdas: list[float] | None = None  # None → use the learner's default fixed log-spaced grid
     max_features: int | None = 5000  # if set and D > max_features, Gaussian random-project to max_features
     class_weight: Literal["balanced"] | None = "balanced"  # "balanced" → sklearn-style per-class weights; None → unweighted
+    dtype: Literal["float32", "float64"] = "float64"  # "float64" recommended for precision; use "float32" only if necessary (e.g. Apple MPS)
 
     def build_learner(self, model, callbacks, n_classes, val_set, verbose=1, seed: int = 0):
         from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
@@ -236,5 +237,6 @@ class RidgeProbingTraining(BaseModel):
             max_features=self.max_features,
             projection_seed=seed,
             class_weight=self.class_weight,
+            dtype=self.dtype,
             verbose=verbose,
         )
