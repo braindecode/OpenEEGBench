@@ -69,6 +69,7 @@ def test_fit_streaming_ridge_matches_sklearn_classification(classif_data, max_fe
         device="cpu",
         max_features=max_features,
         projection_seed=projection_seed,
+        class_weight=None,  # sklearn Ridge has no class_weight; disable to compare 1-to-1
     )
 
     if max_features is not None:
@@ -169,6 +170,119 @@ def test_fit_streaming_ridge_regression_matches_sklearn(regression_data):
     np.testing.assert_allclose(pred_ours, pred_ref, atol=1e-4)
     # Val R² should be high on noise-free-ish synthetic data
     assert out["val_scores"][lam] > 0.9
+
+
+@pytest.fixture
+def imbalanced_classif_data():
+    """Imbalanced binary classification: ~95% class 0, ~5% class 1.
+
+    Both classes are linearly separable in feature space, so a class-aware
+    classifier can recover the minority class; an unweighted ridge will
+    collapse to predicting the majority class.
+    """
+    rng = np.random.default_rng(0)
+    N, D = 4000, 20
+    p_minority = 0.05
+    y = (rng.random(N) < p_minority).astype(np.int64)
+    # Class-conditional means separated along one direction.
+    mu = np.zeros((2, D), dtype=np.float32)
+    mu[1, 0] = 3.0
+    X = (mu[y] + rng.standard_normal((N, D)).astype(np.float32))
+    # Shuffle then split 60/20/20 (preserves the imbalance in each split).
+    idx = rng.permutation(N)
+    X, y = X[idx], y[idx]
+    i1, i2 = int(0.6 * N), int(0.8 * N)
+    return {
+        "train": (X[:i1], y[:i1]),
+        "val":   (X[i1:i2], y[i1:i2]),
+        "test":  (X[i2:], y[i2:]),
+        "C": 2,
+    }
+
+
+def test_balanced_class_weight_recovers_minority(imbalanced_classif_data):
+    """On 95/5 imbalanced data, class_weight='balanced' beats unweighted on minority recall.
+
+    Unweighted ridge minimizes squared error, which on heavily imbalanced data
+    is dominated by the majority class — minority recall collapses near 0.
+    Balanced weighting restores per-class equal contribution and the linearly
+    separable signal becomes recoverable.
+    """
+    from open_eeg_bench.ridge_probe import StreamingRidgeProbeLearner
+
+    X_tr, y_tr = imbalanced_classif_data["train"]
+    X_val, y_val = imbalanced_classif_data["val"]
+    X_te, y_te = imbalanced_classif_data["test"]
+    C = imbalanced_classif_data["C"]
+
+    train_set = TensorDataset(torch.from_numpy(X_tr), torch.from_numpy(y_tr))
+    val_set = TensorDataset(torch.from_numpy(X_val), torch.from_numpy(y_val))
+    test_set = TensorDataset(torch.from_numpy(X_te), torch.from_numpy(y_te))
+
+    def fit_predict(class_weight):
+        learner = StreamingRidgeProbeLearner(
+            feature_extractor=nn.Identity(),
+            n_classes=C,
+            batch_size=64,
+            num_workers=0,
+            device="cpu",
+            lambdas=[1e-2, 1.0, 1e2],
+            val_set=val_set,
+            class_weight=class_weight,
+            verbose=0,
+        )
+        learner.fit(train_set, y=None)
+        return learner.predict(test_set)
+
+    pred_unweighted = fit_predict(None)
+    pred_balanced = fit_predict("balanced")
+
+    minority = y_te == 1
+    recall_unweighted = (pred_unweighted[minority] == 1).mean()
+    recall_balanced = (pred_balanced[minority] == 1).mean()
+
+    # Unweighted collapses to majority class — minority recall ~0.
+    assert recall_unweighted < 0.2, f"unweighted minority recall too high: {recall_unweighted}"
+    # Balanced recovers the linearly separable signal — minority recall well above chance.
+    assert recall_balanced > 0.7, f"balanced minority recall too low: {recall_balanced}"
+
+
+def test_balanced_class_weight_noop_when_classes_balanced(classif_data):
+    """class_weight='balanced' on already-balanced classes must equal the unweighted fit.
+
+    sklearn-style balanced weights are ``N / (n_classes * count[c])``: when every
+    class has the same count, all weights equal 1 exactly, so weighted and
+    unweighted accumulators produce identical W and bias.
+    """
+    from open_eeg_bench.ridge_probe import _fit_streaming_ridge
+
+    X_tr, y_tr = classif_data["train"]
+    X_val, y_val = classif_data["val"]
+    C = classif_data["C"]
+    # Trim the train set so each class appears exactly the same number of times.
+    per_class = min(int((y_tr == c).sum()) for c in range(C))
+    keep = np.concatenate([np.where(y_tr == c)[0][:per_class] for c in range(C)])
+    X_tr_bal, y_tr_bal = X_tr[keep], y_tr[keep]
+    common = dict(
+        model=nn.Identity(),
+        train_loader=_loader(X_tr_bal, y_tr_bal),
+        val_loader=_loader(X_val, y_val),
+        n_classes=C,
+        lambdas=[1.0],
+        device="cpu",
+    )
+    out_unw = _fit_streaming_ridge(**common, class_weight=None)
+    out_bal = _fit_streaming_ridge(
+        model=nn.Identity(),
+        train_loader=_loader(X_tr_bal, y_tr_bal),
+        val_loader=_loader(X_val, y_val),
+        n_classes=C,
+        lambdas=[1.0],
+        device="cpu",
+        class_weight="balanced",
+    )
+    torch.testing.assert_close(out_bal["W"], out_unw["W"])
+    torch.testing.assert_close(out_bal["bias"], out_unw["bias"])
 
 
 def test_fit_streaming_ridge_raises_on_nan_features(classif_data):
