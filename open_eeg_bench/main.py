@@ -18,7 +18,7 @@ if TYPE_CHECKING:
 
 from open_eeg_bench.experiment import run_many, Experiment
 from open_eeg_bench.default_configs.experiments import make_all_experiments
-from open_eeg_bench.backbone import PretrainedBackbone
+from open_eeg_bench.backbone import PretrainedBackbone, ScratchBackbone
 
 log = logging.getLogger(__name__)
 
@@ -43,6 +43,7 @@ def benchmark(
     device: str = "cpu",
     collect_all: bool = True,
     only_return_configs: bool = False,
+    from_scratch: bool = False,
 ) -> "pd.DataFrame"|list[Experiment]:
     """Benchmark an EEG model on multiple datasets and finetuning strategies.
 
@@ -110,6 +111,12 @@ def benchmark(
     only_return_configs : bool
         If ``True``, returns the list of experiment configs instead of running them.
         You can later run the experiments with ``open_eeg_bench.experiment.run_many()``.
+    from_scratch : bool
+        If ``True``, instantiate the model with random weights (no pretrained
+        checkpoint loaded) using :class:`~open_eeg_bench.backbone.ScratchBackbone`.
+        Incompatible with ``hub_repo`` / ``checkpoint_url`` / ``checkpoint_path``.
+        Forces ``finetuning_strategies=["full_finetune"]`` (the only strategy
+        compatible with scratch backbones).
 
     Returns
     -------
@@ -151,19 +158,44 @@ def benchmark(
         print(infra)
 
     # Create the backbone config with the provided model
-    backbone_kwargs = dict(
-        model_cls=model_cls,
-        hub_repo=hub_repo,
-        checkpoint_url=checkpoint_url,
-        checkpoint_path=checkpoint_path,
-        model_kwargs=model_kwargs or {},
-        peft_target_modules=peft_target_modules or [],
-        head_module_name=head_module_name,
-        peft_ff_modules=peft_ff_modules or [],
-    )
-    if normalization is not None:
-        backbone_kwargs["normalization"] = normalization
-    backbone = PretrainedBackbone.model_validate(backbone_kwargs)
+    if from_scratch:
+        if any([hub_repo, checkpoint_url, checkpoint_path]):
+            raise ValueError(
+                "from_scratch=True is incompatible with hub_repo, "
+                "checkpoint_url, or checkpoint_path."
+            )
+        if finetuning_strategies is None:
+            finetuning_strategies = ["full_finetune"]
+        elif set(finetuning_strategies) != {"full_finetune"}:
+            raise ValueError(
+                "from_scratch=True only supports finetuning_strategies="
+                "['full_finetune'] (ScratchBackbone has no pretrained "
+                f"weights to freeze or adapt). Got: {finetuning_strategies}"
+            )
+        backbone_kwargs = dict(
+            model_cls=model_cls,
+            model_kwargs=model_kwargs or {},
+            peft_target_modules=peft_target_modules,
+            head_module_name=head_module_name,
+            peft_ff_modules=peft_ff_modules,
+        )
+        if normalization is not None:
+            backbone_kwargs["normalization"] = normalization
+        backbone = ScratchBackbone.model_validate(backbone_kwargs)
+    else:
+        backbone_kwargs = dict(
+            model_cls=model_cls,
+            hub_repo=hub_repo,
+            checkpoint_url=checkpoint_url,
+            checkpoint_path=checkpoint_path,
+            model_kwargs=model_kwargs or {},
+            peft_target_modules=peft_target_modules or [],
+            head_module_name=head_module_name,
+            peft_ff_modules=peft_ff_modules or [],
+        )
+        if normalization is not None:
+            backbone_kwargs["normalization"] = normalization
+        backbone = PretrainedBackbone.model_validate(backbone_kwargs)
 
     # Create all experiment configs (dataset x head x finetuning x seed combinations)
     experiments = make_all_experiments(
