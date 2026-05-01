@@ -246,7 +246,8 @@ def _fit_streaming_ridge(
     )  # tensor of shape (K,)
 
     # Among tied best scores, pick the largest λ (most regularization):
-    # more parsimonious, fewer effective degrees of freedom, numerically stabler.
+    # when val cannot discriminate (e.g. discretized scores on small val sets,
+    # plateaus), the most regularized solution is the safest bet.
     # NaN-aware: a NaN val score means the val pass hit non-finite features
     # or predictions — exclude it from both max and tie-breaking.
     finite_mask = torch.isfinite(val_scores)
