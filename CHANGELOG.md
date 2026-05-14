@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Allow custom normalization methods by subclassing `Normalization`, now based on `exca.helpers.DiscriminatedModel`. Builtin subclasses pin their pre-existing `kind` value to preserve cached experiment UIDs ([#113](https://github.com/braindecode/OpenEEGBench/pull/113)).
+- Allow custom normalization methods by subclassing `Normalization`, now based on `exca.helpers.DiscriminatedModel`. Builtin subclasses pin their pre-existing `kind` value to preserve cached experiment UIDs ([#35](https://github.com/braindecode/OpenEEGBench/pull/35)).
 
 ## [0.4.0] - 2026-05-07
 
