@@ -10,7 +10,7 @@ numpy array and are applied as a transform after windowing.
 
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, ClassVar
 
 import numpy as np
 from pydantic import ConfigDict
@@ -18,9 +18,24 @@ from exca.helpers import DiscriminatedModel
 
 
 class Normalization(DiscriminatedModel, discriminator_key="kind"):
-    """Base class for all normalizations."""
+    """Base class for all normalizations.
+
+    Subclass to define a custom normalization; instances are dispatched
+    automatically via the ``kind`` discriminator key. By default the
+    discriminator value is ``cls.__name__``. Builtin subclasses pin a
+    snake_case value via ``_legacy_kind`` to preserve the pre-DiscriminatedModel
+    serialization format and keep cached experiment UIDs stable.
+    """
+
+    _legacy_kind: ClassVar[str | None] = None
 
     model_config = ConfigDict(extra="forbid")
+
+    def __init_subclass__(cls, **kwargs: Any) -> None:
+        super().__init_subclass__(**kwargs)
+        legacy = cls.__dict__.get("_legacy_kind")
+        if legacy:
+            cls.__name__ = legacy
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         """Apply normalization to a window of EEG data."""
@@ -33,7 +48,7 @@ class DivideByConstant(Normalization):
     Used by LaBraM and CBraMod (factor=100) to set the EEG unit to 0.1 mV.
     """
 
-    kind: Literal["divide_by_constant"] = "divide_by_constant"
+    _legacy_kind: ClassVar[str | None] = "divide_by_constant"
     factor: float = 100.0
 
     def apply(self, data: np.ndarray) -> np.ndarray:
@@ -47,7 +62,7 @@ class PercentileScale(Normalization):
     absolute amplitude so that the bulk of values falls near [-1, 1].
     """
 
-    kind: Literal["percentile_scale"] = "percentile_scale"
+    _legacy_kind: ClassVar[str | None] = "percentile_scale"
     q: float = 95.0
     eps: float = 1e-8
 
@@ -64,7 +79,7 @@ class MinMaxScale(Normalization):
     Used by BENDR.
     """
 
-    kind: Literal["minmax_scale"] = "minmax_scale"
+    _legacy_kind: ClassVar[str | None] = "minmax_scale"
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         dmin = np.min(data)
@@ -81,7 +96,7 @@ class WindowZScore(Normalization):
     Used by REVE (clip_sigma=15) and EEGPT (channel_wise=True).
     """
 
-    kind: Literal["window_zscore"] = "window_zscore"
+    _legacy_kind: ClassVar[str | None] = "window_zscore"
     channel_wise: bool = False
     clip_sigma: float | None = 15.0
     eps: float = 1e-10
@@ -103,7 +118,7 @@ class ScaleToMV(Normalization):
     Used by EEGPT during pretraining.
     """
 
-    kind: Literal["scale_to_mv"] = "scale_to_mv"
+    _legacy_kind: ClassVar[str | None] = "scale_to_mv"
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         return data / 1000.0
@@ -112,7 +127,7 @@ class ScaleToMV(Normalization):
 class NoNormalization(Normalization):
     """No-op normalization (identity). Default when no normalization is needed."""
 
-    kind: Literal["none"] = "none"
+    _legacy_kind: ClassVar[str | None] = "none"
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         return data
