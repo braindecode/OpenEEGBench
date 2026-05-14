@@ -10,19 +10,29 @@ numpy array and are applied as a transform after windowing.
 
 from __future__ import annotations
 
-from typing import Annotated, Literal, Union
+from typing import Literal
 
 import numpy as np
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import ConfigDict
+from exca.helpers import DiscriminatedModel
 
 
-class DivideByConstant(BaseModel):
+class Normalization(DiscriminatedModel, discriminator_key="kind"):
+    """Base class for all normalizations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    def apply(self, data: np.ndarray) -> np.ndarray:
+        """Apply normalization to a window of EEG data."""
+        raise NotImplementedError
+
+
+class DivideByConstant(Normalization):
     """Divide data by a constant factor.
 
     Used by LaBraM and CBraMod (factor=100) to set the EEG unit to 0.1 mV.
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["divide_by_constant"] = "divide_by_constant"
     factor: float = 100.0
 
@@ -30,14 +40,13 @@ class DivideByConstant(BaseModel):
         return data / self.factor
 
 
-class PercentileScale(BaseModel):
+class PercentileScale(Normalization):
     """Per-channel percentile normalization.
 
     Used by BIOT: each channel is divided by the q-th percentile of its
     absolute amplitude so that the bulk of values falls near [-1, 1].
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["percentile_scale"] = "percentile_scale"
     q: float = 95.0
     eps: float = 1e-8
@@ -49,13 +58,12 @@ class PercentileScale(BaseModel):
         return data / (quantile + self.eps)
 
 
-class MinMaxScale(BaseModel):
+class MinMaxScale(Normalization):
     """Per-window min-max scaling to [-1, 1].
 
     Used by BENDR.
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["minmax_scale"] = "minmax_scale"
 
     def apply(self, data: np.ndarray) -> np.ndarray:
@@ -67,13 +75,12 @@ class MinMaxScale(BaseModel):
         return 2.0 * (data - dmin) / drange - 1.0
 
 
-class WindowZScore(BaseModel):
+class WindowZScore(Normalization):
     """Per-window z-score normalization with optional sigma clipping.
 
     Used by REVE (clip_sigma=15) and EEGPT (channel_wise=True).
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["window_zscore"] = "window_zscore"
     channel_wise: bool = False
     clip_sigma: float | None = 15.0
@@ -90,37 +97,22 @@ class WindowZScore(BaseModel):
         return normalised
 
 
-class ScaleToMV(BaseModel):
+class ScaleToMV(Normalization):
     """Convert microvolt data to millivolts (divide by 1000).
 
     Used by EEGPT during pretraining.
     """
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["scale_to_mv"] = "scale_to_mv"
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         return data / 1000.0
 
 
-class NoNormalization(BaseModel):
+class NoNormalization(Normalization):
     """No-op normalization (identity). Default when no normalization is needed."""
 
-    model_config = ConfigDict(extra="forbid")
     kind: Literal["none"] = "none"
 
     def apply(self, data: np.ndarray) -> np.ndarray:
         return data
-
-
-Normalization = Annotated[
-    Union[
-        NoNormalization,
-        DivideByConstant,
-        PercentileScale,
-        MinMaxScale,
-        WindowZScore,
-        ScaleToMV,
-    ],
-    Field(discriminator="kind"),
-]
