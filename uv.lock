@@ -231,8 +231,8 @@ wheels = [
 
 [[package]]
 name = "braindecode"
-version = "1.5.0.dev0"
-source = { git = "https://github.com/braindecode/braindecode.git#4c98b223878eeacd584b5b3eaba315bb8ff440d1" }
+version = "1.6.0.dev0"
+source = { git = "https://github.com/braindecode/braindecode.git#e60bd5a67c721f0aac97463d3113b55cf5f58c6c" }
 dependencies = [
     { name = "docstring-inheritance" },
     { name = "h5py" },
