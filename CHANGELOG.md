@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add a required `revision` field on `Dataset` (forwarded to `BaseConcatDataset.pull_from_hub`) and pin every default dataset config to its current HuggingFace commit SHA for reproducibility ([#37](https://github.com/braindecode/OpenEEGBench/pull/37)).
+
+### Changed
+- X
+
+### Fixed
+- X
+
+
 ## [0.4.0] - 2026-05-07
 
 ### Added
