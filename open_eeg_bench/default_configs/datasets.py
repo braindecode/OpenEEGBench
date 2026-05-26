@@ -16,6 +16,7 @@ def arithmetic_zyma2019(**overrides) -> Dataset:
     """Mental arithmetic vs. rest — 2 classes, 36 subjects."""
     defaults = dict(
         hf_id="braindecode/arithmetic_zyma2019",
+        revision="8359206e7e1b3d1f068033348e291d6677be1920",
         n_classes=2,
         montage_name="standard_1005",
         splitter=PredefinedSplitter(
@@ -33,6 +34,7 @@ def bcic2a(**overrides) -> Dataset:
     """BCI Competition IV 2a — 4-class motor imagery, 9 subjects."""
     defaults = dict(
         hf_id="braindecode/bcic2a",
+        revision="3585206f74463e787688a0f4afd12605c9be700c",
         n_classes=4,
         splitter=PredefinedSplitter(
             metadata_key="subject",
@@ -49,6 +51,7 @@ def bcic2020_3(**overrides) -> Dataset:
     """BCI Competition 2020-3 — 5-class imagined speech."""
     defaults = dict(
         hf_id="braindecode/bcic2020-3",
+        revision="8e2addefed44280be79b0c29bb09cc4c723cf18d",
         n_classes=5,
         montage_name="standard_1005",
         splitter=PredefinedSplitter(
@@ -66,6 +69,7 @@ def physionet(**overrides) -> Dataset:
     """PhysioNet Motor Imagery — 4 classes, 109 subjects."""
     defaults = dict(
         hf_id="braindecode/physionet",
+        revision="3c9cf8b242ca49550a43028bde3c6db3f1353b51",
         n_classes=4,
         splitter=PredefinedSplitter(
             metadata_key="subject",
@@ -82,6 +86,7 @@ def chbmit(**overrides) -> Dataset:
     """CHB-MIT seizure detection — 2 classes, 23 subjects."""
     defaults = dict(
         hf_id="braindecode/chbmit",
+        revision="3c7fc5537fb22686b2aafa8eb1a30d292c4464ab",
         n_classes=2,
         montage_name="standard_1005",
         splitter=PredefinedSplitter(
@@ -99,6 +104,7 @@ def faced(**overrides) -> Dataset:
     """FACED emotion recognition — 9 classes, 123 subjects."""
     defaults = dict(
         hf_id="braindecode/faced",
+        revision="18c73355fc71c055e92828384da85bb49bc6e3c0",
         n_classes=9,
         montage_name="standard_1005",
         splitter=PredefinedSplitter(
@@ -116,6 +122,7 @@ def isruc_sleep(**overrides) -> Dataset:
     """ISRUC sleep staging — 5 classes, ~60 usable subjects."""
     defaults = dict(
         hf_id="braindecode/isruc-sleep",
+        revision="beda68130bc3a84c8e6abf11c527d7c5ff941616",
         n_classes=5,
         montage_name="standard_1005",
         splitter=PredefinedSplitter(
@@ -143,6 +150,7 @@ def mdd_mumtaz2016(**overrides) -> Dataset:
     """MDD detection (Mumtaz 2016) — 2 classes."""
     defaults = dict(
         hf_id="braindecode/mdd_mumtaz2016",
+        revision="53cd9de1af5f09209d8a0f4fe20aa325c6a5fedb",
         n_classes=2,
         montage_name="standard_1005",
         splitter=PredefinedSplitter(
@@ -174,6 +182,7 @@ def seed_v(**overrides) -> Dataset:
     """SEED-V emotion recognition — 5 classes, session-based split."""
     defaults = dict(
         hf_id="braindecode/seed-v",
+        revision="b3498f4b045ade3093ecc646e2162057309479d3",
         n_classes=5,
         splitter=PredefinedSplitter(
             metadata_key="session",
@@ -190,6 +199,7 @@ def seed_vig(**overrides) -> Dataset:
     """SEED-VIG vigilance regression — continuous perclos target."""
     defaults = dict(
         hf_id="braindecode/seed-vig",
+        revision="896f1ad81375dc1aaf53f6e73d9d0c829be7bb40",
         n_classes=None,  # regression
         splitter=PredefinedSplitter(
             metadata_key="subject",
@@ -206,6 +216,7 @@ def tuab(**overrides) -> Dataset:
     """TUH Abnormal EEG — 2 classes (normal/abnormal), predefined train/eval split."""
     defaults = dict(
         hf_id="braindecode/tuab",
+        revision="7afcc5a00b50cac0f7e6e7f36928f7ccd8b91744",
         n_classes=2,
         splitter=PredefinedSplitter(
             metadata_key="train",
@@ -222,6 +233,7 @@ def tuev(**overrides) -> Dataset:
     """TUH EEG Events — 6 classes, predefined train/eval split."""
     defaults = dict(
         hf_id="braindecode/tuev",
+        revision="a16d2dcaf354a4c1fa1d31e1e591294802939868",
         n_classes=6,
         splitter=PredefinedSplitter(
             metadata_key="split",
