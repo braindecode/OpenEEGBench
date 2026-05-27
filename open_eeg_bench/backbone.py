@@ -352,14 +352,16 @@ class PretrainedBackbone(_BraindecodeBackbone):
         if missing_buffers:
             log.warning(
                 "Pretrained checkpoint for %s is missing %d buffer(s) that are "
-                "neither under head_module_name='%s' nor under any module in "
-                "training_required_modules=%s:\n%s\n"
+                "not covered by the allowlist "
+                "(head_module_name='%s', training_required_modules=%s, "
+                "training_required_parameters=%s):\n%s\n"
                 "Buffers are not trained, so missing values may be computed at "
                 "init — but verify this is intentional.",
                 self.model_cls,
                 len(missing_buffers),
                 self.head_module_name,
                 self.training_required_modules,
+                self.training_required_parameters,
                 "\n".join(f"  - {describe(k)}" for k in missing_buffers),
             )
 
