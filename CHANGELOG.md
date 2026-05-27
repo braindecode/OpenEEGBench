@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - Allow custom normalization methods by subclassing `Normalization`, now based on `exca.helpers.DiscriminatedModel`. Builtin subclasses pin their pre-existing `kind` value to preserve cached experiment UIDs ([#35](https://github.com/braindecode/OpenEEGBench/pull/35)).
+- Add `training_required_parameters` field on `_BackboneBase` for top-level `nn.Parameter` names that must remain trainable (e.g. Labram's `temporal_embedding`). Distinct from `training_required_modules`, which only accepts `nn.Module` names. Finetuning methods declare compatibility via the `supports_training_required_parameters` class variable; `IA3` and `OFT` opt out. `LoRA`/`AdaLoRA`/`DoRA` forward the list to PEFT's `target_parameters`; `Frozen`/`TwoStages` extend their unfreeze list ([#25](https://github.com/braindecode/OpenEEGBench/pull/25)).
 
 ## [0.4.0] - 2026-05-07
 

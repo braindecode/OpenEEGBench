@@ -182,6 +182,57 @@ def test_ridge_rejects_training_required_modules():
         )
 
 
+def test_ridge_rejects_training_required_parameters():
+    """Backbones with training_required_parameters are incompatible with ridge."""
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.head import FlattenHead
+    from open_eeg_bench.training import RidgeProbingTraining
+
+    bb = biot().model_copy(update={"training_required_parameters": ["some_param"]})
+    with pytest.raises(ValueError, match="training_required_parameters"):
+        Experiment(
+            backbone=bb,
+            head=FlattenHead(),
+            finetuning=Frozen(),
+            dataset=arithmetic_zyma2019(),
+            training=RidgeProbingTraining(),
+            seed=0,
+        )
+
+
+def test_ia3_rejects_training_required_parameters():
+    """IA3 cannot train top-level Parameters and must reject non-empty list."""
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.finetuning import IA3
+
+    bb = biot().model_copy(update={"training_required_parameters": ["some_param"]})
+    with pytest.raises(ValueError, match="training_required_parameters"):
+        Experiment(
+            backbone=bb,
+            finetuning=IA3(),
+            dataset=arithmetic_zyma2019(),
+            seed=0,
+        )
+
+
+def test_lora_accepts_training_required_parameters():
+    """LoRA forwards training_required_parameters to PEFT target_parameters."""
+    from open_eeg_bench.default_configs.datasets import arithmetic_zyma2019
+    from open_eeg_bench.default_configs.backbones import biot
+    from open_eeg_bench.finetuning import LoRA
+
+    bb = biot().model_copy(update={"training_required_parameters": ["some_param"]})
+    exp = Experiment(
+        backbone=bb,
+        finetuning=LoRA(),
+        dataset=arithmetic_zyma2019(),
+        seed=0,
+    )
+    assert exp.backbone.training_required_parameters == ["some_param"]
+
+
 
 def test_ridge_valid_combination_accepted():
     """ridge + FlattenHead + Frozen + clean backbone + seed=0 must be accepted."""
