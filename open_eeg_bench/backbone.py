@@ -18,7 +18,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 from importlib import import_module
-import warnings
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
@@ -58,12 +57,24 @@ class _BackboneBase(BaseModel):
             "since training extra layers is not comparable to training only a classification head."
         ),
     )
+    training_required_parameters: list[str] | None = Field(
+        default=None,
+        description=(
+            "Top-level ``nn.Parameter`` names (NOT modules) that must remain trainable, "
+            "typically because they cannot be loaded from the pretrained checkpoint "
+            "(e.g. shape mismatch with the new ``n_chans``/``n_times``). "
+            "Only finetuning methods whose "
+            "``supports_training_required_parameters`` is True accept a non-empty list. "
+            "Like ``training_required_modules``, models using this field are categorized "
+            "separately in evaluations."
+        ),
+    )
     normalization: Normalization = Field(
         default=NoNormalization(),
         description="Post-window normalization applied to each data window.",
     )
 
-    def get_training_required_modules(self):
+    def get_training_required_modules(self) -> list[str]:
         out = [self.head_module_name]
         if self.training_required_modules:
             log.warning(
@@ -74,6 +85,16 @@ class _BackboneBase(BaseModel):
             )
             out += self.training_required_modules
         return out
+
+    def get_training_required_parameters(self) -> list[str]:
+        if self.training_required_parameters:
+            log.warning(
+                "%s requires training extra parameters %s beyond the head. "
+                "This model will be categorized separately in evaluations.",
+                type(self).__name__,
+                self.training_required_parameters,
+            )
+        return list(self.training_required_parameters or [])
 
     def _build(
         self,
@@ -92,6 +113,7 @@ class _BackboneBase(BaseModel):
         This test can only be done once the model has been instantiated.
         """
         module_names = {name for name, _ in model.named_modules()}
+        param_names = {name for name, _ in model.named_parameters()}
         module_fields = {"head_module_name": [self.head_module_name]}
         if (
             self.peft_target_modules is not None
@@ -102,16 +124,26 @@ class _BackboneBase(BaseModel):
             module_fields["peft_ff_modules"] = self.peft_ff_modules
         if self.training_required_modules is not None:
             module_fields["training_required_modules"] = self.training_required_modules
-        for field, names in module_fields.items():
-            for name in names:
-                # Allow short names that match a suffix (e.g. "qkv" matches "encoder.layer.0.qkv")
-                if name not in module_names and not any(
-                    n == name or n.endswith("." + name) for n in module_names
-                ):
-                    raise ValueError(
-                        f"{type(self).__name__}.{field} references module '{name}' "
-                        f"which does not exist in the model."
-                    )
+        param_fields = {}
+        if self.training_required_parameters is not None:
+            param_fields["training_required_parameters"] = (
+                self.training_required_parameters
+            )
+
+        def _check(fields, valid_names, kind):
+            for field, names in fields.items():
+                for name in names:
+                    # Allow short names matching a suffix (e.g. "qkv" matches "encoder.layer.0.qkv")
+                    if name not in valid_names and not any(
+                        n == name or n.endswith("." + name) for n in valid_names
+                    ):
+                        raise ValueError(
+                            f"{type(self).__name__}.{field} references {kind} '{name}' "
+                            f"which does not exist in the model."
+                        )
+
+        _check(module_fields, module_names, "module")
+        _check(param_fields, param_names, "parameter")
 
     def build(
         self,
@@ -277,39 +309,60 @@ class PretrainedBackbone(_BraindecodeBackbone):
             len(skipped),
         )
 
-        # Sanity check on missing keys (model keys not loaded from checkpoint).
-        param_names = {name for name, _ in model.named_parameters()}
-        allowed_prefixes = [self.head_module_name]
-        if self.training_required_modules:
-            allowed_prefixes.extend(self.training_required_modules)
+        allowed_names = (
+            [self.head_module_name]
+            + (self.training_required_modules or [])
+            + (self.training_required_parameters or [])
+        )
 
-        def _is_allowed(key: str) -> bool:
-            return any(key == p or key.startswith(p + ".") for p in allowed_prefixes)
+        def covered(k: str) -> bool:
+            return any(f".{m}." in f".{k}." for m in allowed_names)
 
-        unexpected_params = [
-            k for k in missing if k in param_names and not _is_allowed(k)
+        def describe(k: str) -> str:
+            if k in state_dict:
+                ckpt_shape = tuple(state_dict[k].shape)
+                model_shape = tuple(model_state[k].shape)
+                return f"{k}  [shape mismatch: ckpt {ckpt_shape} vs model {model_shape}]"
+            return f"{k}  [absent from checkpoint]"
+
+        param_names = {n for n, _ in model.named_parameters()}
+        missing_params = [k for k in missing if k in param_names and not covered(k)]
+        missing_buffers = [
+            k for k in missing if k not in param_names and not covered(k)
         ]
-        missing_buffers = [k for k in missing if k not in param_names]
 
-        if unexpected_params:
-            # TODO: 
-            # - FIX the models. 
-            # - Transform this warning into an error
-            warnings.warn(
-                f"Pretrained checkpoint is missing weights for backbone "
-                f"parameters outside of head_module_name and "
-                f"training_required_modules: {unexpected_params}. "
-                f"These parameters keep random initialization, making results "
-                f"seed-dependent. Either provide a checkpoint that covers them "
-                f"or add the relevant modules to training_required_modules.",
-                stacklevel=2,
+        if missing_params:
+            raise ValueError(
+                f"Pretrained checkpoint for {self.model_cls} is missing "
+                f"{len(missing_params)} learnable parameter(s) that are neither "
+                f"under head_module_name='{self.head_module_name}' nor under any "
+                f"name in training_required_modules={self.training_required_modules} "
+                f"or training_required_parameters={self.training_required_parameters}:\n"
+                + "\n".join(f"  - {describe(k)}" for k in missing_params)
+                + "\nThese parameters would be silently initialized from scratch, "
+                "which is almost certainly a config error. Either:\n"
+                "  (a) the checkpoint is incompatible with the declared architecture "
+                "(check model_kwargs), or\n"
+                "  (b) these names should be declared in `training_required_modules` "
+                "(for nn.Modules) or `training_required_parameters` (for top-level "
+                "nn.Parameters) so they are explicitly trained from scratch (note: "
+                "this will categorize the model separately in evaluations)."
             )
+
         if missing_buffers:
-            warnings.warn(
-                f"Pretrained checkpoint does not cover the following "
-                f"buffers: {missing_buffers}. They keep their default "
-                f"initialization (typically deterministic).",
-                stacklevel=2,
+            log.warning(
+                "Pretrained checkpoint for %s is missing %d buffer(s) that are "
+                "not covered by the allowlist "
+                "(head_module_name='%s', training_required_modules=%s, "
+                "training_required_parameters=%s):\n%s\n"
+                "Buffers are not trained, so missing values may be computed at "
+                "init — but verify this is intentional.",
+                self.model_cls,
+                len(missing_buffers),
+                self.head_module_name,
+                self.training_required_modules,
+                self.training_required_parameters,
+                "\n".join(f"  - {describe(k)}" for k in missing_buffers),
             )
 
     @staticmethod

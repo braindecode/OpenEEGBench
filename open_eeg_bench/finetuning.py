@@ -9,7 +9,7 @@ trains everything.
 from __future__ import annotations
 
 import logging
-from typing import Annotated, Any, Literal, Union
+from typing import Annotated, Any, ClassVar, Literal, Union
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -87,6 +87,12 @@ class _BaseFinetuning(BaseModel):
     model_config = ConfigDict(extra="forbid")
     disable_backbone_dropout: bool = True
 
+    # Class-level capability flag, NOT a model field. Subclasses override to False
+    # when they cannot honor backbone.training_required_parameters (i.e. cannot
+    # keep top-level nn.Parameters trainable). The Experiment validator reads this
+    # to enforce backbone/finetuning compatibility.
+    supports_training_required_parameters: ClassVar[bool] = True
+
     def _apply(self, model, backbone):
         raise NotImplementedError
 
@@ -115,6 +121,7 @@ class LoRA(_BaseFinetuning):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
+        target_parameters = backbone.get_training_required_parameters() or None
         target_modules = _filter_targets(
             model,
             backbone.peft_target_modules,
@@ -132,6 +139,7 @@ class LoRA(_BaseFinetuning):
             lora_alpha=self.alpha,
             lora_dropout=self.dropout,
             target_modules=target_modules,
+            target_parameters=target_parameters,
             bias=self.bias,
             modules_to_save=modules_to_save,
         )
@@ -151,6 +159,7 @@ class IA3(_BaseFinetuning):
     """Infused Adapter by Inhibiting and Amplifying Inner Activations."""
 
     kind: Literal["ia3"] = "ia3"
+    supports_training_required_parameters: ClassVar[bool] = False
 
     def _apply(self, model, backbone):
         from peft import IA3Config as PeftIA3Config
@@ -200,6 +209,7 @@ class AdaLoRA(_BaseFinetuning):
         from peft import AdaLoraConfig as PeftAdaLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
+        target_parameters = backbone.get_training_required_parameters() or None
         target_modules = _filter_targets(
             model, backbone.peft_target_modules, _nn_types("Linear")
         )
@@ -208,6 +218,7 @@ class AdaLoRA(_BaseFinetuning):
             lora_alpha=self.alpha,
             lora_dropout=self.dropout,
             target_modules=target_modules,
+            target_parameters=target_parameters,
             modules_to_save=modules_to_save,
             total_step=self.total_step,
             target_r=self.target_r,
@@ -241,6 +252,7 @@ class DoRA(_BaseFinetuning):
         from peft import LoraConfig as PeftLoraConfig
 
         modules_to_save = backbone.get_training_required_modules()
+        target_parameters = backbone.get_training_required_parameters() or None
         target_modules = _filter_targets(
             model,
             backbone.peft_target_modules,
@@ -251,6 +263,7 @@ class DoRA(_BaseFinetuning):
             lora_alpha=self.alpha,
             lora_dropout=self.dropout,
             target_modules=target_modules,
+            target_parameters=target_parameters,
             bias=self.bias,
             modules_to_save=modules_to_save,
             use_dora=True,
@@ -275,6 +288,7 @@ class OFT(_BaseFinetuning):
     module_dropout: float = 0.0
     coft: bool = False
     block_share: bool = False
+    supports_training_required_parameters: ClassVar[bool] = False
 
     def _apply(self, model, backbone):
         from peft import OFTConfig as PeftOFTConfig
@@ -325,9 +339,12 @@ class Frozen(_BaseFinetuning):
     kind: Literal["frozen"] = "frozen"
 
     def _apply(self, model, backbone):
-        modules_to_save = backbone.get_training_required_modules()
+        save_names = (
+            backbone.get_training_required_modules()
+            + backbone.get_training_required_parameters()
+        )
         for name, param in model.named_parameters():
-            if not any(save_name in name for save_name in modules_to_save):
+            if not any(save_name in name for save_name in save_names):
                 param.requires_grad = False
         return model, {**_param_stats(model), "method": "frozen"}
 
@@ -347,9 +364,12 @@ class TwoStages(_BaseFinetuning):
     n_epochs_frozen: int = 5
 
     def _apply(self, model, backbone):
-        modules_to_save = backbone.get_training_required_modules()
+        save_names = (
+            backbone.get_training_required_modules()
+            + backbone.get_training_required_parameters()
+        )
         for name, param in model.named_parameters():
-            if not any(save_name in name for save_name in modules_to_save):
+            if not any(save_name in name for save_name in save_names):
                 param.requires_grad = False
         # TODO: set the rest of the modules to eval mode!
         return model, {**_param_stats(model), "method": "frozen"}

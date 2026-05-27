@@ -79,11 +79,29 @@ class Experiment(BaseModel):
         if is_ridge and not isinstance(self.finetuning, Frozen):
             raise ValueError("Ridge probing requires Frozen finetuning.")
 
-        if is_ridge and self.backbone.training_required_modules:
+        if is_ridge and (
+            self.backbone.training_required_modules
+            or self.backbone.training_required_parameters
+        ):
             raise ValueError(
                 f"Ridge probing incompatible with backbone.training_required_modules="
-                f"{self.backbone.training_required_modules}. "
+                f"{self.backbone.training_required_modules} or "
+                f"backbone.training_required_parameters="
+                f"{self.backbone.training_required_parameters}. "
                 f"These backbones need SGD training."
+            )
+
+        if (
+            self.backbone.training_required_parameters
+            and not self.finetuning.supports_training_required_parameters
+        ):
+            raise ValueError(
+                f"{type(self.finetuning).__name__} is incompatible with "
+                f"backbone.training_required_parameters="
+                f"{self.backbone.training_required_parameters}. "
+                f"This finetuning method can only train nn.Modules. "
+                f"Use a method whose supports_training_required_parameters is True "
+                f"(e.g. LoRA, AdaLoRA, DoRA, FullFinetune, Frozen, TwoStages)."
             )
 
         if (

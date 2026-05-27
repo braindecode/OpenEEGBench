@@ -2,10 +2,13 @@
 
 import numpy as np
 import pytest
+from pydantic import BaseModel
 
 from open_eeg_bench.normalization import (
     DivideByConstant,
     MinMaxScale,
+    NoNormalization,
+    Normalization,
     PercentileScale,
     ScaleToMV,
     WindowZScore,
@@ -58,3 +61,49 @@ def test_scale_to_mv(data):
     norm = ScaleToMV()
     result = norm.apply(data)
     np.testing.assert_allclose(result, data / 1000.0)
+
+
+def test_custom_normalization(data):
+    """A user-defined Normalization subclass should integrate seamlessly."""
+
+    class AddOffset(Normalization):
+        offset: float = 1.0
+
+        def apply(self, data: np.ndarray) -> np.ndarray:
+            return data + self.offset
+
+    # Direct use
+    norm = AddOffset(offset=2.5)
+    np.testing.assert_allclose(norm.apply(data), data + 2.5)
+
+    # Usable as a Normalization field on a parent model, with round-trip
+    # serialization through the "kind" discriminator key.
+    class Parent(BaseModel):
+        norm: Normalization
+
+    parent = Parent(norm=AddOffset(offset=3.0))
+    assert isinstance(parent.norm, AddOffset)
+
+    restored = Parent.model_validate(parent.model_dump())
+    assert isinstance(restored.norm, AddOffset)
+    assert restored.norm.offset == 3.0
+
+
+@pytest.mark.parametrize(
+    "cls, legacy_kind",
+    [
+        (DivideByConstant, "divide_by_constant"),
+        (PercentileScale, "percentile_scale"),
+        (MinMaxScale, "minmax_scale"),
+        (WindowZScore, "window_zscore"),
+        (ScaleToMV, "scale_to_mv"),
+        (NoNormalization, "none"),
+    ],
+)
+def test_legacy_kind_serialization(cls, legacy_kind):
+    """Builtin subclasses must keep their pre-DiscriminatedModel ``kind`` value
+    so cached experiment UIDs remain stable."""
+    dump = cls().model_dump()
+    assert dump["kind"] == legacy_kind
+    restored = Normalization.model_validate(dump)
+    assert isinstance(restored, cls)
