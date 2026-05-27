@@ -24,11 +24,12 @@ def biot(**overrides) -> PretrainedBackbone:
 
 def labram(**overrides) -> PretrainedBackbone:
     defaults = dict(
-        model_cls="braindecode.models.Labram",
+        model_cls="braindecode.models.InterpolatedLaBraM",
         # mlp.0 and mlp.2 are the two Linear layers inside the MLP block
         peft_ff_modules=["mlp.0", "mlp.2"],
-        # The temporal_embedding was trained for n_times=3000 only (so there will be a shape mismatch)
-        training_required_modules=["temporal_embedding"],
+        # temporal_embedding is an nn.Parameter trained for n_times=3000 only
+        # (shape mismatch with other n_times → must be retrained from scratch)
+        training_required_parameters=["temporal_embedding"],
         normalization=DivideByConstant(factor=100.0),
         hub_repo="braindecode/labram-pretrained",
     )
