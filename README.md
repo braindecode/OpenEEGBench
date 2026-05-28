@@ -152,7 +152,6 @@ You may also be interested in the following articles which use Open EEG Bench:
   month        = aug,
   pages        = {1--5},
   organization = {EURASIP},
-  note         = {Submitted to EUSIPCO 2026}
 }
 ```
 
