@@ -140,6 +140,22 @@ Machine-readable metadata is provided in [CITATION.cff](CITATION.cff) — used b
 }
 ```
 
+You may also be interested in the following articles which use Open EEG Bench:
+
+```bibtex
+@inproceedings{guetschel2026openeegbench,
+  title        = {Toward {OpenEEG-Bench}: A Live Community-Driven Benchmark for {EEG} Foundation Models},
+  author       = {Guetschel, Pierre and Aristimunha, Bruno and Truong, Dung and Kokate, Kuntal and Tangermann, Michael and Delorme, Arnaud},
+  booktitle    = {Proceedings of the 34th European Signal Processing Conference (EUSIPCO 2026)},
+  year         = {2026},
+  address      = {Bruges, Belgium},
+  month        = aug,
+  pages        = {1--5},
+  organization = {EURASIP},
+  note         = {Submitted to EUSIPCO 2026}
+}
+```
+
 ## 📚 Further reading
 
 - [Running on a cluster](docs/cluster.md) — SLURM submission, `infra` options, caching, execution modes
