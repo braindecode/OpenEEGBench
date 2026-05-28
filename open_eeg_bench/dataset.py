@@ -101,6 +101,12 @@ class Dataset(BaseModel):
     hf_id: str = Field(
         description="HuggingFace Hub dataset ID, e.g. 'braindecode/bcic2a'."
     )
+    revision: str = Field(
+        description=(
+            "HuggingFace Hub revision (commit hash, branch, or tag) to pin "
+            "the dataset to a specific version."
+        ),
+    )
     n_classes: int | None = Field(
         description="Number of classes (None for regression)."
     )
@@ -113,15 +119,19 @@ class Dataset(BaseModel):
         ),
     )
     preload: bool = False
-    
+
     _exclude_from_cls_uid: ClassVar[tuple[str, ...]] = ("preload",)
 
     def load(self):
         """Pull windowed dataset from HuggingFace Hub."""
         from braindecode.datasets import BaseConcatDataset
 
-        log.info("Loading dataset from HuggingFace Hub: %s", self.hf_id)
-        return BaseConcatDataset.pull_from_hub(self.hf_id, preload=self.preload)
+        log.info(
+            "Loading dataset from HuggingFace Hub: %s@%s", self.hf_id, self.revision
+        )
+        return BaseConcatDataset.pull_from_hub(
+            self.hf_id, preload=self.preload, revision=self.revision
+        )
 
     def setup(self, normalization):
         """Load dataset, apply normalization, split, and return sets.

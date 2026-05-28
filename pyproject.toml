@@ -21,7 +21,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "braindecode[hub]>=1.4.0",
+    "braindecode[hub]>=1.6.1.dev184162698",
     "exca>=0.5.10",
     "peft>=0.14.0",
     "pydantic>=2.0",
@@ -42,9 +42,6 @@ Changelog = "https://github.com/braindecode/OpenEEGBench/blob/master/CHANGELOG.m
 [project.optional-dependencies]
 benchopt = ["benchopt>=1.9"]
 dev = ["pytest", "pytest-cov"]
-
-[tool.uv.sources]
-braindecode = { git = "https://github.com/braindecode/braindecode.git" }
 
 [tool.setuptools.packages.find]
 where = ["."]
