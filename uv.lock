@@ -231,8 +231,8 @@ wheels = [
 
 [[package]]
 name = "braindecode"
-version = "1.6.0.dev0"
-source = { git = "https://github.com/braindecode/braindecode.git?rev=master#e60bd5a67c721f0aac97463d3113b55cf5f58c6c" }
+version = "1.6.1.dev184162698"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "docstring-inheritance" },
     { name = "h5py" },
@@ -248,6 +248,10 @@ dependencies = [
     { name = "torchaudio" },
     { name = "torchinfo" },
     { name = "wfdb" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/bb/ba/aba95f57befd8c6f1357eb0e4332bb205fd77ec4fe2b28b17db4e2720efc/braindecode-1.6.1.dev184162698.tar.gz", hash = "sha256:c7e0a3f34037512e44e35d61f68e8d6085b7f1ab9d3169173a2c85d75c4efa31", size = 560833, upload-time = "2026-05-28T19:40:56.739Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/78/fa/dda574880abd8554a4698c6b820de2eb67c77f4db7968751c8f49db1581d/braindecode-1.6.1.dev184162698-py3-none-any.whl", hash = "sha256:62a0b2a257fa882a2cd4457158eec8e06d46733065e5c8a120c4a4cb50a893a3", size = 575753, upload-time = "2026-05-28T19:40:55.258Z" },
 ]
 
 [package.optional-dependencies]
@@ -2123,7 +2127,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "benchopt", marker = "extra == 'benchopt'", specifier = ">=1.9" },
-    { name = "braindecode", extras = ["hub"], git = "https://github.com/braindecode/braindecode.git?rev=master" },
+    { name = "braindecode", extras = ["hub"], specifier = ">=1.6.1.dev184162698" },
     { name = "exca", specifier = ">=0.5.10" },
     { name = "numpy" },
     { name = "pandas" },
