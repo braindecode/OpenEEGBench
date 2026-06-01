@@ -84,6 +84,20 @@ def reve(**overrides) -> PretrainedBackbone:
     return PretrainedBackbone(**defaults)
 
 
+def eegpt(**overrides) -> PretrainedBackbone:
+    defaults = dict(
+        # model_cls="braindecode.models.EEGPT",
+        # model_cls="braindecode.models.InterpolatedEEGPT",
+        model_cls="open_eeg_bench.backbone_utils.InterpolatedEEGPT",
+        model_kwargs={"chan_proj_type": "none", "n_chans_target": 19},
+        peft_ff_modules=["qkv", "fc1", "fc2"],
+        normalization=WindowZScore(),
+        hub_repo="braindecode/eegpt-pretrained",
+    )
+    defaults.update(overrides)
+    return PretrainedBackbone(**defaults)
+
+
 ALL_BACKBONES = {
     "biot": biot,
     "labram": labram,
@@ -91,4 +105,5 @@ ALL_BACKBONES = {
     "cbramod": cbramod,
     "signal_jepa": signal_jepa,
     "reve": reve,
+    "eegpt": eegpt,
 }
