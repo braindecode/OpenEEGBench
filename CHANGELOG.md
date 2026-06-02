@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- Add the EEGPT backbone ([#40](https://github.com/braindecode/OpenEEGBench/pull/40)).
 
 ## [0.5.0] - 2026-05-28
 
