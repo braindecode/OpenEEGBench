@@ -37,8 +37,8 @@ authors:
     family-names: Delorme
     email: adelorme@ucsd.edu
     affiliation: "Swartz Center for Computational Neuroscience, Institute for Neural Computation, San Diego Supercomputer Center, University of California San Diego, USA; CNRS, France"
-version: 0.5.0
-date-released: "2026-05-28"
+version: 0.6.0
+date-released: "2026-06-02"
 identifiers:
   - type: doi
     value: 10.5281/zenodo.19698863
